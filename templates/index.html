@@ -1,0 +1,68 @@
+﻿<!DOCTYPE html>
+<html lang="th">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>World.Journey.AI</title>
+    <link rel="stylesheet" href="{{ url_for('static', filename='css/styles.css') }}">
+</head>
+<body>
+    <header class="site-header" role="banner">
+        <div class="header-content">
+            <span class="brand-name" aria-label="World Journey AI">World.Journey.AI</span>
+        </div>
+    </header>
+
+    <main class="page" role="main">
+        <section class="hero" aria-labelledby="hero-title">
+            <h1 id="hero-title" class="hero-title">สำรวจโลกด้วย AI คู่หูการเดินทางของคุณ</h1>
+            <p class="hero-subtitle">พิมพ์หรือพูดชื่อจุดหมาย แล้วให้เราแนะนำสถานที่ท่องเที่ยวที่น่าสนใจในทันที</p>
+        </section>
+
+        <section class="globe-section" aria-labelledby="globe-title">
+            <h2 id="globe-title" class="visually-hidden">ภาพลูกโลก World Journey AI</h2>
+            <div class="globe-frame">
+                <img src="{{ url_for('static', filename='images/World.png') }}" alt="ภาพลูกโลก" class="globe-image" loading="lazy" draggable="false">
+            </div>
+            <div class="result-card" aria-live="polite" aria-atomic="true">
+                <p class="result-label">ผลลัพธ์</p>
+                <p id="output-text" class="output-text" role="status"></p>
+            </div>
+        </section>
+
+        <section class="ticker-section" aria-label="สถานที่แนะนำยอดนิยม">
+            <div class="ticker">
+                <div class="ticker-track" data-duplicated="false">
+                    <span>พัทยา</span>
+                    <span>กรุงเทพมหานคร</span>
+                    <span>เกียวโต</span>
+                    <span>โซล</span>
+                    <span>ดูไบ</span>
+                    <span>Giza Pyramids</span>
+                    <span>ปารีส</span>
+                    <span>โรม</span>
+                    <span>นิวยอร์ก</span>
+                    <span>ซิดนีย์</span>
+                </div>
+            </div>
+        </section>
+
+        <section class="composer" aria-label="ส่งปลายทางที่ต้องการ">
+            <form id="journey-form" class="composer-form" autocomplete="off">
+                <label class="visually-hidden" for="destination-input">ระบุปลายทางที่ต้องการ</label>
+                <input id="destination-input" name="destination" type="text" placeholder="ต้องการไปที่ใดในโลกครับ" aria-label="ต้องการไปที่ใดในโลกครับ" required>
+                <button type="button" id="mic-button" class="composer-button mic-button" aria-label="พูด">
+                    <span aria-hidden="true" class="button-icon">🎤</span>
+                    <span class="button-label">พูด</span>
+                </button>
+                <button type="submit" id="send-button" class="composer-button send-button" aria-label="ส่งข้อความ">ส่ง</button>
+            </form>
+        </section>
+    </main>
+
+    <div id="toast" class="toast" role="status" aria-live="polite"></div>
+
+    <script src="{{ url_for('static', filename='js/app.js') }}" defer></script>
+</body>
+</html>
+
