@@ -594,7 +594,8 @@ a:focus {
 
 /* Cancel Button - matches send button size and location */
 .cancel-ai-btn {
-    display: none; /* Hidden by default */
+    display: none;
+    /* Hidden by default */
     border: none;
     border-radius: 16px;
     padding: 0.85rem 1.6rem;

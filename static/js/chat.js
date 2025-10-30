@@ -204,7 +204,7 @@
 
   function showCancelButton() {
     if (!elements.composer || !elements.sendButton) return;
-    
+
     let cancelBtn = document.getElementById('cancel-ai-button');
     if (!cancelBtn) {
       cancelBtn = document.createElement('button');
@@ -216,7 +216,7 @@
       // Insert cancel button right after send button
       elements.sendButton.parentNode.insertBefore(cancelBtn, elements.sendButton.nextSibling);
     }
-    
+
     // Hide send button and show cancel button
     elements.sendButton.style.display = 'none';
     cancelBtn.classList.add('show');
