@@ -1,0 +1,66 @@
+<!doctype html>
+<html lang="th">
+  <head>
+    <meta charset="utf-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1">
+    <title>เข้าสู่ระบบ | World Journey AI</title>
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link href="https://fonts.googleapis.com/css2?family=Prompt:wght@400;500;600;700&display=swap" rel="stylesheet">
+    <link rel="stylesheet" href="{{ url_for('static', filename='css/login.css') }}">
+    <link rel="icon" href="{{ url_for('static', filename='img/favicon.ico') }}" type="image/x-icon">
+    <script src="/firebase_config.js"></script>
+    <script type="module" src="{{ url_for('static', filename='js/firebase-init.js') }}"></script>
+    <script src="{{ url_for('static', filename='js/auth-state.js') }}" defer></script>
+    <script src="{{ url_for('static', filename='js/login.js') }}" defer></script>
+  </head>
+  <body class="login-body">
+    <div class="auth-card" role="form">
+      <header class="auth-header">
+        <p class="auth-kicker">INTELLIGENT TRAVEL PUBLICITY</p>
+        <h1>กับ AI น้องปลาทู</h1>
+        <p class="auth-subtitle">เข้าสู่ระบบหรือสมัครสมาชิกเพื่อเริ่มวางแผนการเดินทางของคุณ</p>
+      </header>
+
+      <div class="auth-switch" role="tablist">
+        <button type="button" class="auth-tab is-active" data-auth-mode="login" role="tab" aria-selected="true">เข้าสู่ระบบ</button>
+        <button type="button" class="auth-tab" data-auth-mode="signup" role="tab" aria-selected="false">สมัครสมาชิก</button>
+      </div>
+
+      <form id="auth-form" class="auth-form" novalidate>
+        <div class="form-field" data-auth-required="true">
+          <label for="displayName" class="form-label">ชื่อที่ต้องการให้แสดง</label>
+          <input id="displayName" name="displayName" type="text" autocomplete="name" placeholder="เช่น นที, Natee" class="form-input" required>
+          <p class="form-hint">จะแสดงบนแถบด้านบนและในข้อความจากคุณ</p>
+          <p class="form-error" data-error-for="displayName"></p>
+        </div>
+
+        <div class="form-field">
+          <label for="email" class="form-label">อีเมล</label>
+          <input id="email" name="email" type="email" autocomplete="email" placeholder="name@example.com" class="form-input" required>
+          <p class="form-error" data-error-for="email"></p>
+        </div>
+
+        <div class="form-field">
+          <label for="password" class="form-label">รหัสผ่าน</label>
+          <input id="password" name="password" type="password" autocomplete="current-password" placeholder="อย่างน้อย 6 ตัวอักษร" class="form-input" required>
+          <p class="form-error" data-error-for="password"></p>
+        </div>
+
+        <div class="form-field" id="confirmPasswordField" data-auth-required="true">
+          <label for="confirmPassword" class="form-label">ยืนยันรหัสผ่าน</label>
+          <input id="confirmPassword" name="confirmPassword" type="password" autocomplete="new-password" placeholder="พิมพ์รหัสผ่านอีกครั้ง" class="form-input">
+          <p class="form-error" data-error-for="confirmPassword"></p>
+        </div>
+
+        <p id="form-error" class="form-error form-error--general" role="alert" aria-live="assertive"></p>
+
+        <button type="submit" id="submitButton" class="auth-submit">
+          <span class="submit-text" data-label-login="เข้าสู่ระบบ" data-label-signup="สมัครสมาชิก">เข้าสู่ระบบ</span>
+        </button>
+      </form>
+
+      <footer class="auth-footer">ข้อมูลของคุณได้รับการปกป้องด้วย Firebase Authentication</footer>
+    </div>
+  </body>
+</html>
