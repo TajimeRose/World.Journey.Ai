@@ -185,9 +185,9 @@
 
   async function sendUserMessage() {
     if (!elements.chatInput || !elements.sendButton) return;
-    
+
     const text = elements.chatInput.value.trim();
-    if (!text) return;    elements.chatInput.value = '';
+    if (!text) return; elements.chatInput.value = '';
     elements.sendButton.disabled = true;
     resetFilePreview();
 

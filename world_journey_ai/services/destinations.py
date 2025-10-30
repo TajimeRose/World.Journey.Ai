@@ -58,6 +58,12 @@ DESTINATIONS: List[Dict[str, str]] = [
         "mapUrl": "https://www.google.com/maps/place/Phuket",
     },
     {
+        "name": "พัทยา",
+        "city": "ประเทศไทย",
+        "description": "ชายหาดจอมเทียน ถนนคนเดินวอล์คกิ้งสตรีท และเกาะล้านแบบวันเดียวเที่ยวได้",
+        "mapUrl": "https://www.google.com/maps/place/Pattaya",
+    },
+    {
         "name": "เชียงใหม่",
         "city": "ประเทศไทย",
         "description": "คาเฟ่ดอยสุเทพ ตลาดวโรรส และขับรถเที่ยวแม่กำปองในวันเดียว",
