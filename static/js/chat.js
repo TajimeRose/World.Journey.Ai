@@ -18,12 +18,12 @@
   const state = {
     userDisplayName: window.__USER_DISPLAY_NAME__ || 'ผู้ใช้งาน',
     typingNode: null,
-    pollingTimer: null,
     lastTimestamp: null,
     speech: {
       recognition: null,
       recording: false,
     },
+    realtimeSeen: new Set(),
   };
 
   function showToast(message, variant = 'info') {
@@ -66,8 +66,8 @@
       message.role === 'assistant'
         ? 'message-row--assistant'
         : message.role === 'user'
-        ? 'message-row--user'
-        : 'message-row--system'
+          ? 'message-row--user'
+          : 'message-row--system'
     );
 
     const bubble = document.createElement('div');
@@ -77,8 +77,8 @@
       message.role === 'assistant'
         ? 'message-bubble--assistant'
         : message.role === 'user'
-        ? 'message-bubble--user'
-        : 'message-bubble--system'
+          ? 'message-bubble--user'
+          : 'message-bubble--system'
     );
 
     const meta = document.createElement('div');
@@ -90,7 +90,12 @@
     } else if (message.role === 'user') {
       author.classList.add('message-author--user');
     }
-    author.textContent = analyseMessageRole(message.role);
+    // Prefer an explicit author provided on the message; fall back to role-based label
+    if (message.author && message.role === 'user') {
+      author.textContent = message.author;
+    } else {
+      author.textContent = analyseMessageRole(message.role);
+    }
     meta.appendChild(author);
     bubble.appendChild(meta);
 
@@ -180,10 +185,9 @@
 
   async function sendUserMessage() {
     if (!elements.chatInput || !elements.sendButton) return;
-    const text = elements.chatInput.value.trim();
-    if (!text) return;
 
-    elements.chatInput.value = '';
+    const text = elements.chatInput.value.trim();
+    if (!text) return; elements.chatInput.value = '';
     elements.sendButton.disabled = true;
     resetFilePreview();
 
@@ -216,10 +220,7 @@
     }
   }
 
-  function schedulePolling() {
-    if (state.pollingTimer) window.clearInterval(state.pollingTimer);
-    state.pollingTimer = window.setInterval(fetchMessages, 5000);
-  }
+  // polling removed — realtime listener is used instead
 
   function ensureSpeechRecognition() {
     const SpeechRecognition = window.SpeechRecognition || window.webkitSpeechRecognition;
@@ -269,6 +270,29 @@
     state.speech.recognition = recognition;
   }
 
+  // Realtime database listener for new messages (client-side writes)
+  function listenForRealtimeMessages() {
+    try {
+      if (window.__FIREBASE__ && window.__FIREBASE__.dbApi && window.__FIREBASE__.dbApi.onValue) {
+        window.__FIREBASE__.dbApi.onValue('messages', (snapshot) => {
+          const data = snapshot.val();
+          if (!data) return;
+          Object.entries(data).forEach(([key, val]) => {
+            if (state.realtimeSeen.has(key)) return;
+            state.realtimeSeen.add(key);
+            const text = val.text || val.message || '';
+            const time = val.time || val.createdAt || new Date().toISOString();
+            const author = val.user || val.author || null;
+            // normalize to server message shape if possible
+            appendMessage({ role: 'user', text, createdAt: time, author });
+          });
+        });
+      }
+    } catch (err) {
+      console.warn('Realtime listener failed', err);
+    }
+  }
+
   function handleMicClick() {
     const recognition = state.speech.recognition;
     if (!recognition) {
@@ -293,6 +317,20 @@
     if (!keyword) return;
     if (elements.chatInput) {
       elements.chatInput.value = keyword;
+    }
+    // store the redirected search query to Firebase
+    try {
+      if (window.__FIREBASE__ && window.__FIREBASE__.dbApi) {
+        const dbApi = window.__FIREBASE__.dbApi;
+        const key = `searches/${Date.now()}_${Math.random().toString(36).slice(2, 8)}`;
+        dbApi.set(dbApi.ref(key), {
+          query: keyword,
+          createdAt: new Date().toISOString(),
+          source: 'index-redirect',
+        });
+      }
+    } catch (err) {
+      console.warn('Failed to write search to Firebase', err);
     }
     sendUserMessage();
     params.delete('q');
@@ -321,16 +359,65 @@
     });
   }
 
+  // Check authentication status and clear chat data if user is not logged in
+  function checkAuthAndInitialize() {
+    const isAuthenticated = window.__FIREBASE__ && window.__FIREBASE__.auth && window.__FIREBASE__.auth.currentUser;
+
+    if (!isAuthenticated) {
+      // Clear all messages from display for unauthenticated users
+      if (elements.messages) {
+        elements.messages.innerHTML = '';
+      }
+      // Show a small notice about logging in to save history
+      if (elements.emptyState) {
+        elements.emptyState.classList.remove('hidden');
+        const loginPrompt = elements.emptyState.querySelector('p') || elements.emptyState;
+        if (loginPrompt) {
+          loginPrompt.textContent = 'กรุณาเข้าสู่ระบบเพื่อเก็บประวัติการสนทนา';
+          loginPrompt.style.fontSize = '0.9rem';
+          loginPrompt.style.color = '#666';
+        }
+      }
+      // Allow sending messages (don't disable)
+      if (elements.sendButton) {
+        elements.sendButton.disabled = false;
+      }
+      if (elements.chatInput) {
+        elements.chatInput.placeholder = 'พิมพ์ข้อความของคุณ...';
+      }
+      // Don't load saved messages for unauthenticated users
+      return false;
+    }
+    return true;
+  }
+
   window.addEventListener('wj-auth-changed', (event) => {
     updateUserIdentity(event?.detail?.displayName);
+    // Re-check auth status when auth state changes
+    const isAuth = checkAuthAndInitialize();
+    if (isAuth) {
+      // Load saved messages when user logs in
+      fetchMessages().then(() => {
+        listenForRealtimeMessages();
+      });
+    }
   });
 
   updateUserIdentity(state.userDisplayName);
   bindEvents();
   initialiseSpeechRecognition();
   resetFilePreview();
-  fetchMessages().then(() => {
-    schedulePolling();
+
+  // Check auth before loading messages
+  const canProceed = checkAuthAndInitialize();
+  if (canProceed) {
+    fetchMessages().then(() => {
+      // start realtime listener (non-blocking)
+      listenForRealtimeMessages();
+      handleQueryParameter();
+    });
+  } else {
+    // For unauthenticated users, just handle query param (allow chatting)
     handleQueryParameter();
-  });
+  }
 })();
