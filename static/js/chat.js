@@ -18,7 +18,6 @@
   const state = {
     userDisplayName: window.__USER_DISPLAY_NAME__ || 'ผู้ใช้งาน',
     typingNode: null,
-    pollingTimer: null,
     lastTimestamp: null,
     speech: {
       recognition: null,
@@ -91,7 +90,12 @@
     } else if (message.role === 'user') {
       author.classList.add('message-author--user');
     }
-    author.textContent = analyseMessageRole(message.role);
+    // Prefer an explicit author provided on the message; fall back to role-based label
+    if (message.author && message.role === 'user') {
+      author.textContent = message.author;
+    } else {
+      author.textContent = analyseMessageRole(message.role);
+    }
     meta.appendChild(author);
     bubble.appendChild(meta);
 
@@ -217,10 +221,7 @@
     }
   }
 
-  function schedulePolling() {
-    if (state.pollingTimer) window.clearInterval(state.pollingTimer);
-    state.pollingTimer = window.setInterval(fetchMessages, 5000);
-  }
+  // polling removed — realtime listener is used instead
 
   function ensureSpeechRecognition() {
     const SpeechRecognition = window.SpeechRecognition || window.webkitSpeechRecognition;
@@ -282,7 +283,9 @@
             state.realtimeSeen.add(key);
             const text = val.text || val.message || '';
             const time = val.time || val.createdAt || new Date().toISOString();
-            appendMessage({ role: 'user', text, createdAt: time });
+            const author = val.user || val.author || null;
+            // normalize to server message shape if possible
+            appendMessage({ role: 'user', text, createdAt: time, author });
           });
         });
       }
@@ -366,7 +369,6 @@
   initialiseSpeechRecognition();
   resetFilePreview();
   fetchMessages().then(() => {
-    schedulePolling();
     // start realtime listener (non-blocking)
     listenForRealtimeMessages();
     handleQueryParameter();
