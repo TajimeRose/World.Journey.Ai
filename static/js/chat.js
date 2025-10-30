@@ -24,6 +24,7 @@
       recognition: null,
       recording: false,
     },
+    realtimeSeen: new Set(),
   };
 
   function showToast(message, variant = 'info') {
@@ -66,8 +67,8 @@
       message.role === 'assistant'
         ? 'message-row--assistant'
         : message.role === 'user'
-        ? 'message-row--user'
-        : 'message-row--system'
+          ? 'message-row--user'
+          : 'message-row--system'
     );
 
     const bubble = document.createElement('div');
@@ -77,8 +78,8 @@
       message.role === 'assistant'
         ? 'message-bubble--assistant'
         : message.role === 'user'
-        ? 'message-bubble--user'
-        : 'message-bubble--system'
+          ? 'message-bubble--user'
+          : 'message-bubble--system'
     );
 
     const meta = document.createElement('div');
@@ -269,6 +270,27 @@
     state.speech.recognition = recognition;
   }
 
+  // Realtime database listener for new messages (client-side writes)
+  function listenForRealtimeMessages() {
+    try {
+      if (window.__FIREBASE__ && window.__FIREBASE__.dbApi && window.__FIREBASE__.dbApi.onValue) {
+        window.__FIREBASE__.dbApi.onValue('messages', (snapshot) => {
+          const data = snapshot.val();
+          if (!data) return;
+          Object.entries(data).forEach(([key, val]) => {
+            if (state.realtimeSeen.has(key)) return;
+            state.realtimeSeen.add(key);
+            const text = val.text || val.message || '';
+            const time = val.time || val.createdAt || new Date().toISOString();
+            appendMessage({ role: 'user', text, createdAt: time });
+          });
+        });
+      }
+    } catch (err) {
+      console.warn('Realtime listener failed', err);
+    }
+  }
+
   function handleMicClick() {
     const recognition = state.speech.recognition;
     if (!recognition) {
@@ -298,7 +320,7 @@
     try {
       if (window.__FIREBASE__ && window.__FIREBASE__.dbApi) {
         const dbApi = window.__FIREBASE__.dbApi;
-        const key = `searches/${Date.now()}_${Math.random().toString(36).slice(2,8)}`;
+        const key = `searches/${Date.now()}_${Math.random().toString(36).slice(2, 8)}`;
         dbApi.set(dbApi.ref(key), {
           query: keyword,
           createdAt: new Date().toISOString(),
@@ -345,6 +367,8 @@
   resetFilePreview();
   fetchMessages().then(() => {
     schedulePolling();
+    // start realtime listener (non-blocking)
+    listenForRealtimeMessages();
     handleQueryParameter();
   });
 })();
