@@ -299,16 +299,40 @@
 
   // polling removed — realtime listener is used instead
 
+  function updateMicRecordingState(recording) {
+    state.speech.recording = recording;
+    if (!elements.micButton) return;
+    elements.micButton.classList.toggle('is-recording', recording);
+    elements.micButton.setAttribute('aria-label', recording ? 'หยุดฟังเสียง' : 'เริ่มฟังเสียง');
+    elements.micButton.setAttribute('aria-pressed', recording ? 'true' : 'false');
+  }
+
   function ensureSpeechRecognition() {
     const SpeechRecognition = window.SpeechRecognition || window.webkitSpeechRecognition;
     if (!SpeechRecognition) {
       if (elements.micButton) {
         elements.micButton.disabled = true;
         elements.micButton.setAttribute('aria-disabled', 'true');
+        elements.micButton.setAttribute('aria-pressed', 'false');
       }
       return null;
     }
-    return new SpeechRecognition();
+    try {
+      const instance = new SpeechRecognition();
+      if (elements.micButton) {
+        elements.micButton.disabled = false;
+        elements.micButton.removeAttribute('aria-disabled');
+        elements.micButton.setAttribute('aria-pressed', 'false');
+      }
+      return instance;
+    } catch (error) {
+      console.warn('SpeechRecognition initialisation failed', error);
+      if (elements.micButton) {
+        elements.micButton.disabled = true;
+        elements.micButton.setAttribute('aria-disabled', 'true');
+      }
+      return null;
+    }
   }
 
   function initialiseSpeechRecognition() {
@@ -319,17 +343,9 @@
     recognition.interimResults = false;
     recognition.maxAlternatives = 1;
 
-    recognition.addEventListener('start', () => {
-      state.speech.recording = true;
-      elements.micButton?.classList.add('is-recording');
-      elements.micButton?.setAttribute('aria-label', 'หยุดฟังเสียง');
-    });
+    recognition.addEventListener('start', () => updateMicRecordingState(true));
 
-    recognition.addEventListener('end', () => {
-      state.speech.recording = false;
-      elements.micButton?.classList.remove('is-recording');
-      elements.micButton?.setAttribute('aria-label', 'เริ่มฟังเสียง');
-    });
+    recognition.addEventListener('end', () => updateMicRecordingState(false));
 
     recognition.addEventListener('speechend', () => recognition.stop());
     recognition.addEventListener('result', (event) => {
@@ -339,9 +355,16 @@
         elements.chatInput.focus();
       }
     });
-    recognition.addEventListener('error', () => {
-      state.speech.recording = false;
-      showToast('ไม่สามารถใช้งานไมโครโฟนได้', 'error');
+    recognition.addEventListener('error', (event) => {
+      const errorType = event?.error || '';
+      updateMicRecordingState(false);
+      if (errorType === 'not-allowed' || errorType === 'service-not-allowed') {
+        state.speech.recognition = null;
+      }
+      const message = errorType === 'not-allowed'
+        ? 'กรุณาอนุญาตให้เบราว์เซอร์เข้าถึงไมโครโฟน'
+        : 'ไม่สามารถใช้งานไมโครโฟนได้';
+      showToast(message, 'error');
     });
 
     state.speech.recognition = recognition;
@@ -371,7 +394,11 @@
   }
 
   function handleMicClick() {
-    const recognition = state.speech.recognition;
+    let recognition = state.speech.recognition;
+    if (!recognition) {
+      recognition = ensureSpeechRecognition();
+      state.speech.recognition = recognition;
+    }
     if (!recognition) {
       showToast('ไม่สามารถเริ่มต้นไมโครโฟนได้', 'warning');
       return;

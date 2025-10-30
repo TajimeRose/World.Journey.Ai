@@ -1,4 +1,4 @@
-(() => {
+﻿(() => {
   const firebaseCtx = window.__FIREBASE__;
   if (!firebaseCtx || !firebaseCtx.auth || !firebaseCtx.authApi || !firebaseCtx.dbApi) {
     console.error('Firebase is not configured; login disabled.');
@@ -52,18 +52,18 @@
   }
 
   const ERROR_MESSAGES = {
-    'auth/invalid-email': 'อีเมลไม่ถูกต้อง',
-    'auth/user-not-found': 'ไม่พบบัญชีนี้ กรุณาตรวจสอบอีกครั้ง',
-    'auth/wrong-password': 'รหัสผ่านไม่ถูกต้อง',
-    'auth/missing-password': 'กรุณากรอกรหัสผ่าน',
-    'auth/email-already-in-use': 'อีเมลนี้ถูกใช้งานแล้ว',
-    'auth/weak-password': 'รหัสผ่านต้องมีความยาวอย่างน้อย 6 ตัวอักษร',
-    'auth/network-request-failed': 'เชื่อมต่อเครือข่ายไม่สำเร็จ',
-    'auth/too-many-requests': 'พยายามหลายครั้งเกินไป กรุณาลองใหม่ภายหลัง',
+    'auth/invalid-email': 'เธญเธตเน€เธกเธฅเนเธกเนเธ–เธนเธเธ•เนเธญเธ',
+    'auth/user-not-found': 'เนเธกเนเธเธเธเธฑเธเธเธตเธเธตเน เธเธฃเธธเธ“เธฒเธ•เธฃเธงเธเธชเธญเธเธญเธตเธเธเธฃเธฑเนเธ',
+    'auth/wrong-password': 'เธฃเธซเธฑเธชเธเนเธฒเธเนเธกเนเธ–เธนเธเธ•เนเธญเธ',
+    'auth/missing-password': 'เธเธฃเธธเธ“เธฒเธเธฃเธญเธเธฃเธซเธฑเธชเธเนเธฒเธ',
+    'auth/email-already-in-use': 'เธญเธตเน€เธกเธฅเธเธตเนเธ–เธนเธเนเธเนเธเธฒเธเนเธฅเนเธง',
+    'auth/weak-password': 'เธฃเธซเธฑเธชเธเนเธฒเธเธ•เนเธญเธเธกเธตเธเธงเธฒเธกเธขเธฒเธงเธญเธขเนเธฒเธเธเนเธญเธข 6 เธ•เธฑเธงเธญเธฑเธเธฉเธฃ',
+    'auth/network-request-failed': 'เน€เธเธทเนเธญเธกเธ•เนเธญเน€เธเธฃเธทเธญเธเนเธฒเธขเนเธกเนเธชเธณเน€เธฃเนเธ',
+    'auth/too-many-requests': 'เธเธขเธฒเธขเธฒเธกเธซเธฅเธฒเธขเธเธฃเธฑเนเธเน€เธเธดเธเนเธ เธเธฃเธธเธ“เธฒเธฅเธญเธเนเธซเธกเนเธ เธฒเธขเธซเธฅเธฑเธ',
   };
 
   function mapError(error) {
-    return ERROR_MESSAGES[error?.code] || 'เกิดข้อผิดพลาด กรุณาลองใหม่อีกครั้ง';
+    return ERROR_MESSAGES[error?.code] || 'เน€เธเธดเธ”เธเนเธญเธเธดเธ”เธเธฅเธฒเธ” เธเธฃเธธเธ“เธฒเธฅเธญเธเนเธซเธกเนเธญเธตเธเธเธฃเธฑเนเธ';
   }
 
   async function saveDisplayName(user, name) {
@@ -72,7 +72,7 @@
     try {
       await updateProfile(user, { displayName: cleanName });
     } catch (error) {
-      console.warn('บันทึกชื่อใน Firebase ไม่สำเร็จ', error);
+      console.warn('เธเธฑเธเธ—เธถเธเธเธทเนเธญเนเธ Firebase เนเธกเนเธชเธณเน€เธฃเนเธ', error);
     }
     try {
       const userRef = ref(`/users/${user.uid}`);
@@ -82,7 +82,7 @@
         updatedAt: Date.now(),
       });
     } catch (error) {
-      console.warn('บันทึกข้อมูลผู้ใช้ไม่สำเร็จ', error);
+      console.warn('เธเธฑเธเธ—เธถเธเธเนเธญเธกเธนเธฅเธเธนเนเนเธเนเนเธกเนเธชเธณเน€เธฃเนเธ', error);
     }
   }
 
@@ -97,12 +97,12 @@
     const password = (formData.get('password') || '').toString();
 
     if (!email) {
-      setFieldError('email', 'กรุณากรอกอีเมล');
+      setFieldError('email', 'เธเธฃเธธเธ“เธฒเธเธฃเธญเธเธญเธตเน€เธกเธฅ');
       return;
     }
 
     if (!password) {
-      setFieldError('password', 'กรุณากรอกรหัสผ่าน');
+      setFieldError('password', 'เธเธฃเธธเธ“เธฒเธเธฃเธญเธเธฃเธซเธฑเธชเธเนเธฒเธ');
       return;
     }
 
@@ -112,12 +112,12 @@
       const confirmPassword = (formData.get('confirmPassword') || '').toString();
 
       if (!displayName) {
-        setFieldError('displayName', 'กรุณากรอกชื่อที่ต้องการแสดง');
+        setFieldError('displayName', 'เธเธฃเธธเธ“เธฒเธเธฃเธญเธเธเธทเนเธญเธ—เธตเนเธ•เนเธญเธเธเธฒเธฃเนเธชเธ”เธ');
         return;
       }
 
       if (password !== confirmPassword) {
-        setFieldError('confirmPassword', 'รหัสผ่านต้องตรงกัน');
+        setFieldError('confirmPassword', 'เธฃเธซเธฑเธชเธเนเธฒเธเธ•เนเธญเธเธ•เธฃเธเธเธฑเธ');
         return;
       }
     }
@@ -132,7 +132,11 @@
         const credential = await createUserWithEmailAndPassword(auth, email, password);
         await saveDisplayName(credential.user, displayName);
       }
-      window.location.replace('/');
+      if (currentMode === 'signup') {
+        window.location.replace('/index.html');
+      } else {
+        window.location.replace('/');
+      }
     } catch (error) {
       const message = mapError(error);
       if (generalError) {
@@ -174,3 +178,4 @@
   form?.addEventListener('submit', handleSubmit);
   updateMode(currentMode);
 })();
+
