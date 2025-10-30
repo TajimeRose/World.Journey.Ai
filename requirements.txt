@@ -16,3 +16,11 @@ firebase-admin>=6.2.0
 
 # Development Dependencies (Optional)
 python-dotenv>=1.0.0
+﻿flask
+flask-cors
+gunicorn
+requests
+openai
+firebase-admin
+python-dotenv
+pymongo
