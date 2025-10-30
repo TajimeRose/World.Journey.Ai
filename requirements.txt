@@ -1,3 +1,21 @@
+﻿# Core Framework
+flask>=2.3.0
+flask-cors>=4.0.0
+
+# Production Server
+gunicorn>=21.0.0
+
+# HTTP Requests
+requests>=2.31.0
+
+# AI Integration
+openai>=1.3.0
+
+# Firebase (Optional - for authentication)
+firebase-admin>=6.2.0
+
+# Development Dependencies (Optional)
+python-dotenv>=1.0.0
 ﻿flask
 flask-cors
 gunicorn

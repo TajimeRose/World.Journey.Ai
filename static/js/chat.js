@@ -1,6 +1,48 @@
 (() => {
+  // Mobile menu functionality
+  function initMobileMenu() {
+    const mobileMenuBtn = document.querySelector('.mobile-menu-btn');
+    const navMenu = document.querySelector('.nav-menu');
+
+    if (mobileMenuBtn && navMenu) {
+      mobileMenuBtn.addEventListener('click', () => {
+        const isActive = navMenu.classList.contains('active');
+
+        if (isActive) {
+          navMenu.classList.remove('active');
+          mobileMenuBtn.classList.remove('active');
+          mobileMenuBtn.setAttribute('aria-expanded', 'false');
+        } else {
+          navMenu.classList.add('active');
+          mobileMenuBtn.classList.add('active');
+          mobileMenuBtn.setAttribute('aria-expanded', 'true');
+        }
+      });
+
+      // Close menu when clicking outside
+      document.addEventListener('click', (e) => {
+        if (!mobileMenuBtn.contains(e.target) && !navMenu.contains(e.target)) {
+          navMenu.classList.remove('active');
+          mobileMenuBtn.classList.remove('active');
+          mobileMenuBtn.setAttribute('aria-expanded', 'false');
+        }
+      });
+
+      // Close menu when clicking on nav links
+      const navLinks = navMenu.querySelectorAll('.nav-link');
+      navLinks.forEach(link => {
+        link.addEventListener('click', () => {
+          navMenu.classList.remove('active');
+          mobileMenuBtn.classList.remove('active');
+          mobileMenuBtn.setAttribute('aria-expanded', 'false');
+        });
+      });
+    }
+  }
+
   const elements = {
     messages: document.getElementById('messages'),
+    chatLog: document.getElementById('chat-log'),
     emptyState: document.getElementById('empty-state'),
     composer: document.getElementById('composer'),
     chatInput: document.getElementById('chat-input'),
@@ -10,6 +52,7 @@
     fileName: document.getElementById('chatImagePreview'),
     toastRegion: document.getElementById('toast-region'),
     chatUserName: document.getElementById('chatUserName'),
+    scrollToBottomBtn: document.getElementById('scroll-to-bottom'),
   };
 
   const FILE_ACCEPTED_TYPES = ['image/jpeg', 'image/png', 'image/webp'];
@@ -26,6 +69,7 @@
     realtimeSeen: new Set(),
     abortController: null,
     isAIThinking: false,
+    shouldAutoScroll: true, // Track if we should auto-scroll
   };
 
   function showToast(message, variant = 'info') {
@@ -116,11 +160,63 @@
     return wrapper;
   }
 
+  function smoothScrollToBottom() {
+    if (!elements.chatLog) return;
+
+    // Only auto-scroll if the user hasn't manually scrolled up
+    if (!state.shouldAutoScroll) return;
+
+    // Use smooth scrolling for better UX
+    elements.chatLog.scrollTo({
+      top: elements.chatLog.scrollHeight,
+      behavior: 'smooth'
+    });
+  }
+
+  function isScrolledToBottom() {
+    if (!elements.chatLog) return true;
+    const threshold = 150; // pixels from bottom
+    const position = elements.chatLog.scrollTop + elements.chatLog.clientHeight;
+    const height = elements.chatLog.scrollHeight;
+    return height - position < threshold;
+  } function handleScroll() {
+    // Check if user has scrolled away from bottom
+    state.shouldAutoScroll = isScrolledToBottom();
+
+    // Show/hide scroll-to-bottom button
+    if (elements.scrollToBottomBtn) {
+      if (state.shouldAutoScroll) {
+        elements.scrollToBottomBtn.classList.add('hidden');
+      } else {
+        elements.scrollToBottomBtn.classList.remove('hidden');
+      }
+    }
+  }
+
+  function scrollToBottomClick() {
+    // Force scroll to bottom and re-enable auto-scroll
+    state.shouldAutoScroll = true;
+    if (elements.chatLog) {
+      elements.chatLog.scrollTo({
+        top: elements.chatLog.scrollHeight,
+        behavior: 'smooth'
+      });
+    }
+    if (elements.scrollToBottomBtn) {
+      elements.scrollToBottomBtn.classList.add('hidden');
+    }
+  }
+
   function appendMessage(message) {
     if (!elements.messages) return;
     const node = createMessageNode(message);
     elements.messages.appendChild(node);
-    elements.messages.scrollTop = elements.messages.scrollHeight;
+
+    // Smooth scroll to bottom after message is appended
+    requestAnimationFrame(() => {
+      smoothScrollToBottom();
+    });
+
     if (elements.emptyState) {
       elements.emptyState.classList.add('hidden');
     }
@@ -132,7 +228,12 @@
     indicator.className = 'message-row message-row--assistant typing-wrapper';
     indicator.innerHTML = '<div class="message-bubble message-bubble--assistant"><div class="message-meta"><span class="message-author message-author--assistant">AI น้องปลาทู</span></div><div class="message-body"><div class="typing-indicator"><span></span><span></span><span></span></div><div class="ai-thinking-text">กำลังคิด...</div></div></div>';
     elements.messages.appendChild(indicator);
-    elements.messages.scrollTop = elements.messages.scrollHeight;
+
+    // Smooth scroll when typing indicator appears
+    requestAnimationFrame(() => {
+      smoothScrollToBottom();
+    });
+
     state.typingNode = indicator;
   }
 
@@ -250,6 +351,9 @@
 
     const text = elements.chatInput.value.trim();
     if (!text || state.isAIThinking) return;
+
+    // Re-enable auto-scroll when user sends a message
+    state.shouldAutoScroll = true;
 
     elements.chatInput.value = '';
     setInputsDisabled(true);
@@ -434,9 +538,13 @@
       const file = event.target?.files?.[0];
       validateFile(file || null);
     });
-  }
 
-  // Check authentication status and clear chat data if user is not logged in
+    // Add scroll event listener to detect when user manually scrolls
+    elements.chatLog?.addEventListener('scroll', handleScroll);
+
+    // Add click handler for scroll-to-bottom button
+    elements.scrollToBottomBtn?.addEventListener('click', scrollToBottomClick);
+  }  // Check authentication status and clear chat data if user is not logged in
   function checkAuthAndInitialize() {
     const isAuthenticated = window.__FIREBASE__ && window.__FIREBASE__.auth && window.__FIREBASE__.auth.currentUser;
 
@@ -484,6 +592,7 @@
   bindEvents();
   initialiseSpeechRecognition();
   resetFilePreview();
+  initMobileMenu(); // Initialize mobile menu
 
   // Check auth before loading messages
   const canProceed = checkAuthAndInitialize();
