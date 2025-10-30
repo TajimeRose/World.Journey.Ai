@@ -294,6 +294,20 @@
     if (elements.chatInput) {
       elements.chatInput.value = keyword;
     }
+    // store the redirected search query to Firebase
+    try {
+      if (window.__FIREBASE__ && window.__FIREBASE__.dbApi) {
+        const dbApi = window.__FIREBASE__.dbApi;
+        const key = `searches/${Date.now()}_${Math.random().toString(36).slice(2,8)}`;
+        dbApi.set(dbApi.ref(key), {
+          query: keyword,
+          createdAt: new Date().toISOString(),
+          source: 'index-redirect',
+        });
+      }
+    } catch (err) {
+      console.warn('Failed to write search to Firebase', err);
+    }
     sendUserMessage();
     params.delete('q');
     const newQuery = params.toString();
