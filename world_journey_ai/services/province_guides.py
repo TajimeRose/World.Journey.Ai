@@ -233,15 +233,24 @@ PROVINCE_GUIDES: Dict[str, List[GuideEntry]] = {
             "budget": "200-400 บาท",
         },
     ],
+    "สมุทรสาคร": [],
     "ขอนแก่น": [],
     "แม่ฮ่องสอน": [],
 }
 
 PROVINCE_SYNONYMS: Dict[str, List[str]] = {
     "กรุงเทพมหานคร": ["กรุงเทพ", "bangkok", "bkk", "krung thep", "krungthep"],
-    "สมุทรสงคราม": ["อัมพวา", "amphawa", "mae klong", "maeklong"],
+    "สมุทรสงคราม": ["อัมพวา", "amphawa", "mae klong", "maeklong", "samut songkhram"],
+    "สมุทรสาคร": ["มหาชัย", "mahachai", "maha chai", "samut sakhon", "samutsakhon"],
     "เชียงใหม่": ["chiangmai", "chiang mai"],
-    "ภูเก็ต": ["phuket"],
+    "ภูเก็ต": ["phuket", "old town phuket", "ภูเก็ตทาวน์"],
     "ขอนแก่น": ["khon kaen", "ขอนแกน"],
     "แม่ฮ่องสอน": ["mae hong son", "แม่ฮ้องสอน"],
+    # Extra provinces (keywords only) to improve matching intent for travel searches
+    "เชียงราย": ["chiang rai", "chiangrai"],
+    "ชลบุรี": ["chonburi", "pattaya", "พัทยา"],
+    "พระนครศรีอยุธยา": ["อยุธยา", "ayutthaya"],
+    "สุโขทัย": ["sukhothai"],
+    "กระบี่": ["krabi"],
+    "สุราษฎร์ธานี": ["surat thani", "koh samui", "เกาะสมุย", "samui"],
 }

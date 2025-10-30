@@ -324,7 +324,7 @@ a:focus {
     gap: 1.2rem;
 }
 
-.guide-response > p {
+.guide-response>p {
     color: rgba(15, 23, 42, 0.82);
     margin: 0;
 }
@@ -490,10 +490,14 @@ a:focus {
 }
 
 @keyframes bounce {
-    0%, 80%, 100% {
+
+    0%,
+    80%,
+    100% {
         transform: translateY(0);
         opacity: 0.4;
     }
+
     40% {
         transform: translateY(-6px);
         opacity: 1;
@@ -551,7 +555,86 @@ a:focus {
     }
 }
 
-.toast-message.info { border-color: rgba(30, 136, 229, 0.45); }
-.toast-message.success { border-color: rgba(87, 204, 196, 0.5); }
-.toast-message.warning { border-color: rgba(255, 213, 79, 0.5); }
-.toast-message.error { border-color: rgba(248, 113, 113, 0.6); }
+.toast-message.info {
+    border-color: rgba(30, 136, 229, 0.45);
+}
+
+.toast-message.success {
+    border-color: rgba(87, 204, 196, 0.5);
+}
+
+.toast-message.warning {
+    border-color: rgba(255, 213, 79, 0.5);
+}
+
+.toast-message.error {
+    border-color: rgba(248, 113, 113, 0.6);
+}
+
+/* AI Thinking Text */
+.ai-thinking-text {
+    margin-top: 0.5rem;
+    font-size: 0.85rem;
+    color: rgba(248, 250, 252, 0.6);
+    font-style: italic;
+    animation: pulse 1.5s ease-in-out infinite;
+}
+
+@keyframes pulse {
+
+    0%,
+    100% {
+        opacity: 0.6;
+    }
+
+    50% {
+        opacity: 1;
+    }
+}
+
+/* Cancel Button - matches send button size and location */
+.cancel-ai-btn {
+    display: none;
+    /* Hidden by default */
+    border: none;
+    border-radius: 16px;
+    padding: 0.85rem 1.6rem;
+    font-weight: 700;
+    font-size: 1rem;
+    background: linear-gradient(135deg, rgba(239, 68, 68, 0.95), rgba(252, 165, 165, 0.92));
+    color: #ffffff;
+    cursor: pointer;
+    box-shadow: 0 18px 36px rgba(239, 68, 68, 0.35);
+    transition: transform 0.2s ease, box-shadow 0.2s ease;
+    align-items: center;
+    gap: 0.4rem;
+}
+
+.cancel-ai-btn:hover,
+.cancel-ai-btn:focus-visible {
+    transform: translateY(-1px);
+    box-shadow: 0 24px 46px rgba(239, 68, 68, 0.45);
+    outline: none;
+    background: linear-gradient(135deg, rgba(220, 38, 38, 0.95), rgba(239, 68, 68, 0.92));
+}
+
+.cancel-ai-btn:active {
+    transform: translateY(0);
+}
+
+.cancel-ai-btn.show {
+    display: inline-flex;
+}
+
+/* Disabled input state */
+#chat-input:disabled {
+    opacity: 0.6;
+    cursor: not-allowed;
+    background: rgba(15, 23, 42, 0.5);
+}
+
+#send-button:disabled,
+#mic-button:disabled {
+    opacity: 0.5;
+    cursor: not-allowed;
+}
