@@ -4,7 +4,6 @@
 # ✅ สร้างตัวแปรหลักของแอป
 app = Flask(__name__)
 CORS(app)
-app = create_app()
 
 
 if __name__ == '__main__':
