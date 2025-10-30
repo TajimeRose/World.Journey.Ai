@@ -186,17 +186,8 @@
   async function sendUserMessage() {
     if (!elements.chatInput || !elements.sendButton) return;
     
-    // Check if user is authenticated before sending
-    const isAuthenticated = window.__FIREBASE__ && window.__FIREBASE__.auth && window.__FIREBASE__.auth.currentUser;
-    if (!isAuthenticated) {
-      showToast('กรุณาเข้าสู่ระบบก่อนส่งข้อความ', 'warning');
-      return;
-    }
-    
     const text = elements.chatInput.value.trim();
-    if (!text) return;
-
-    elements.chatInput.value = '';
+    if (!text) return;    elements.chatInput.value = '';
     elements.sendButton.disabled = true;
     resetFilePreview();
 
@@ -371,28 +362,30 @@
   // Check authentication status and clear chat data if user is not logged in
   function checkAuthAndInitialize() {
     const isAuthenticated = window.__FIREBASE__ && window.__FIREBASE__.auth && window.__FIREBASE__.auth.currentUser;
-    
+
     if (!isAuthenticated) {
-      // Clear all messages from display
+      // Clear all messages from display for unauthenticated users
       if (elements.messages) {
         elements.messages.innerHTML = '';
       }
-      // Show empty state with login prompt
+      // Show a small notice about logging in to save history
       if (elements.emptyState) {
         elements.emptyState.classList.remove('hidden');
         const loginPrompt = elements.emptyState.querySelector('p') || elements.emptyState;
         if (loginPrompt) {
-          loginPrompt.textContent = 'กรุณาเข้าสู่ระบบเพื่อใช้งานแชท';
+          loginPrompt.textContent = 'กรุณาเข้าสู่ระบบเพื่อเก็บประวัติการสนทนา';
+          loginPrompt.style.fontSize = '0.9rem';
+          loginPrompt.style.color = '#666';
         }
       }
-      // Disable send button
+      // Allow sending messages (don't disable)
       if (elements.sendButton) {
-        elements.sendButton.disabled = true;
+        elements.sendButton.disabled = false;
       }
       if (elements.chatInput) {
-        elements.chatInput.placeholder = 'กรุณาเข้าสู่ระบบก่อนส่งข้อความ';
+        elements.chatInput.placeholder = 'พิมพ์ข้อความของคุณ...';
       }
-      // Don't load messages or start listener
+      // Don't load saved messages for unauthenticated users
       return false;
     }
     return true;
@@ -402,8 +395,11 @@
     updateUserIdentity(event?.detail?.displayName);
     // Re-check auth status when auth state changes
     const isAuth = checkAuthAndInitialize();
-    if (isAuth && elements.sendButton) {
-      elements.sendButton.disabled = false;
+    if (isAuth) {
+      // Load saved messages when user logs in
+      fetchMessages().then(() => {
+        listenForRealtimeMessages();
+      });
     }
   });
 
@@ -411,7 +407,7 @@
   bindEvents();
   initialiseSpeechRecognition();
   resetFilePreview();
-  
+
   // Check auth before loading messages
   const canProceed = checkAuthAndInitialize();
   if (canProceed) {
@@ -420,5 +416,8 @@
       listenForRealtimeMessages();
       handleQueryParameter();
     });
+  } else {
+    // For unauthenticated users, just handle query param (allow chatting)
+    handleQueryParameter();
   }
 })();

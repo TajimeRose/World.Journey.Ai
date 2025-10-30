@@ -71,7 +71,7 @@
     try {
       if (window.__FIREBASE__ && window.__FIREBASE__.dbApi) {
         const dbApi = window.__FIREBASE__.dbApi;
-        const key = `searches/${Date.now()}_${Math.random().toString(36).slice(2,8)}`;
+        const key = `searches/${Date.now()}_${Math.random().toString(36).slice(2, 8)}`;
         dbApi.set(dbApi.ref(key), {
           query: value,
           createdAt: new Date().toISOString(),
