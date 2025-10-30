@@ -37,8 +37,9 @@ def create_message():
     payload = request.get_json(silent=True) or {}
     text = str(payload.get("text") or "").strip()
     if not text:
-        return jsonify({"error": "ข้อความต้องไม่ว่าง"}), 400
+        return jsonify({"error": "กรุณากรอกข้อความก่อนส่ง"}), 400
 
     user_entry = engine.append_user(text)
     assistant_entry = engine.build_reply(text)
     return jsonify({"message": user_entry, "assistant": assistant_entry})
+
