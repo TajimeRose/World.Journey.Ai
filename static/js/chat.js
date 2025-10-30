@@ -24,6 +24,8 @@
       recording: false,
     },
     realtimeSeen: new Set(),
+    abortController: null,
+    isAIThinking: false,
   };
 
   function showToast(message, variant = 'info') {
@@ -128,7 +130,7 @@
     if (state.typingNode || !elements.messages) return;
     const indicator = document.createElement('div');
     indicator.className = 'message-row message-row--assistant typing-wrapper';
-    indicator.innerHTML = '<div class="message-bubble message-bubble--assistant"><div class="message-meta"><span class="message-author message-author--assistant">AI น้องปลาทู</span></div><div class="message-body"><div class="typing-indicator"><span></span><span></span><span></span></div></div></div>';
+    indicator.innerHTML = '<div class="message-bubble message-bubble--assistant"><div class="message-meta"><span class="message-author message-author--assistant">AI น้องปลาทู</span></div><div class="message-body"><div class="typing-indicator"><span></span><span></span><span></span></div><div class="ai-thinking-text">กำลังคิด...</div></div></div>';
     elements.messages.appendChild(indicator);
     elements.messages.scrollTop = elements.messages.scrollHeight;
     state.typingNode = indicator;
@@ -183,23 +185,81 @@
     }
   }
 
+  function setInputsDisabled(disabled) {
+    if (elements.chatInput) {
+      elements.chatInput.disabled = disabled;
+      if (disabled) {
+        elements.chatInput.placeholder = 'กรุณารอสักครู่...';
+      } else {
+        elements.chatInput.placeholder = 'พิมพ์ข้อความของคุณ...';
+      }
+    }
+    if (elements.sendButton) {
+      elements.sendButton.disabled = disabled;
+    }
+    if (elements.micButton) {
+      elements.micButton.disabled = disabled;
+    }
+  }
+
+  function showCancelButton() {
+    if (!elements.composer) return;
+    let cancelBtn = document.getElementById('cancel-ai-button');
+    if (!cancelBtn) {
+      cancelBtn = document.createElement('button');
+      cancelBtn.id = 'cancel-ai-button';
+      cancelBtn.type = 'button';
+      cancelBtn.className = 'cancel-ai-btn';
+      cancelBtn.innerHTML = '✕ ยกเลิก';
+      cancelBtn.addEventListener('click', cancelAIRequest);
+      elements.composer.appendChild(cancelBtn);
+    }
+    cancelBtn.style.display = 'inline-flex';
+  }
+
+  function hideCancelButton() {
+    const cancelBtn = document.getElementById('cancel-ai-button');
+    if (cancelBtn) {
+      cancelBtn.style.display = 'none';
+    }
+  }
+
+  function cancelAIRequest() {
+    if (state.abortController) {
+      state.abortController.abort();
+      state.abortController = null;
+    }
+    state.isAIThinking = false;
+    removeTypingIndicator();
+    setInputsDisabled(false);
+    hideCancelButton();
+    showToast('ยกเลิกคำขอแล้ว', 'info');
+  }
+
   async function sendUserMessage() {
     if (!elements.chatInput || !elements.sendButton) return;
 
     const text = elements.chatInput.value.trim();
-    if (!text) return; elements.chatInput.value = '';
-    elements.sendButton.disabled = true;
+    if (!text || state.isAIThinking) return;
+
+    elements.chatInput.value = '';
+    setInputsDisabled(true);
     resetFilePreview();
 
     const userEntry = { role: 'user', text, createdAt: new Date().toISOString() };
     appendMessage(userEntry);
     showTypingIndicator();
+    showCancelButton();
+
+    state.isAIThinking = true;
+    state.abortController = new AbortController();
 
     try {
       const response = await fetch('/api/messages', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ role: 'user', text }),
+        signal: state.abortController.signal,
       });
       if (!response.ok) {
         throw new Error(await response.text());
@@ -212,10 +272,18 @@
       }
     } catch (error) {
       removeTypingIndicator();
-      showToast('ไม่สามารถส่งข้อความได้ กรุณาลองใหม่', 'error');
-      elements.chatInput.value = text;
+      if (error.name === 'AbortError') {
+        // Request was cancelled by user
+        elements.chatInput.value = text;
+      } else {
+        showToast('ไม่สามารถส่งข้อความได้ กรุณาลองใหม่', 'error');
+        elements.chatInput.value = text;
+      }
     } finally {
-      elements.sendButton.disabled = false;
+      state.isAIThinking = false;
+      state.abortController = null;
+      setInputsDisabled(false);
+      hideCancelButton();
       elements.chatInput.focus();
     }
   }

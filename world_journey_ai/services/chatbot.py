@@ -99,7 +99,7 @@ class ChatEngine:
         if destinations:
             suggestions_html = self._build_suggestions_html(destinations[:3])
             summary = (
-                f"น้องปลาทูรวบรวมที่เที่ยวที่น่าจะตรงกับ "{cleaned}" มาให้ 3 ตัวเลือกแรก ลองดูรายละเอียดด้านล่างได้เลยนะคะ"
+                f"น้องปลาทูรวบรวมที่เที่ยวที่น่าจะตรงกับ \"{cleaned}\" มาให้ 3 ตัวเลือกแรก ลองดูรายละเอียดด้านล่างได้เลยนะคะ"
             )
             return self.append_assistant(summary, html=suggestions_html)
 
