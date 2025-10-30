@@ -5,17 +5,21 @@ import html
 import json
 import os
 import unicodedata
-from typing import Dict, List
+from typing import Dict, List, TYPE_CHECKING
 
 from .province_guides import PROVINCE_GUIDES, PROVINCE_SYNONYMS
 from .guides import build_bangkok_guides_html
 from .messages import MessageStore
 
-try:
+if TYPE_CHECKING:
     from openai import OpenAI
+
+try:
+    from openai import OpenAI as OpenAIClient
     OPENAI_AVAILABLE = True
 except ImportError:
     OPENAI_AVAILABLE = False
+    OpenAIClient = None  # type: ignore
 
 TRAVEL_KEYWORDS = (
     "เที่ยว",
@@ -70,7 +74,7 @@ class ChatEngine:
             api_key = os.getenv("OPENAI_API_KEY")
             if api_key:
                 try:
-                    self._openai_client = OpenAI(api_key=api_key)
+                    self._openai_client = OpenAIClient(api_key=api_key)  # type: ignore
                 except Exception:
                     pass
         self._province_aliases = self._build_province_aliases()
@@ -123,6 +127,51 @@ class ChatEngine:
             "ยังไม่เจอข้อมูลที่เกี่ยวข้อง ลองบอกชื่อเมือง ประเทศ หรือสไตล์ทริปเพิ่มเติมอีกนิดนะคะ"
         )
 
+    def _matches_bangkok(self, query: str) -> bool:
+        """Check if query matches Bangkok keywords"""
+        from .destinations import BANGKOK_KEYWORDS
+        normalized = self._normalize(query)
+        return any(self._normalize(keyword) in normalized for keyword in BANGKOK_KEYWORDS)
+
+    def _search_destinations(self, query: str) -> List[Dict[str, str]]:
+        """Search through destinations list"""
+        normalized = query.lower().strip()
+        normalized_no_tone = self._normalize(query)
+        if not normalized:
+            return self._destinations
+
+        results: List[Dict[str, str]] = []
+        for item in self._destinations:
+            combined = " ".join([item["name"], item.get("city", ""), item.get("description", "")])
+            haystack = combined.lower()
+            haystack_no_tone = self._normalize(combined)
+            if normalized in haystack or normalized_no_tone in haystack_no_tone:
+                results.append(item)
+
+        return results
+
+    def _build_suggestions_html(self, suggestions: List[Dict[str, str]]) -> str:
+        """Build HTML for destination suggestions"""
+        cards: List[str] = []
+        for item in suggestions:
+            lines_html = f"<li>{html.escape(item.get('description', ''))}</li>"
+            cards.append(
+                (
+                    "<article class=\"guide-entry guide-entry--suggestion\">"
+                    "<h3>{name} - {city}</h3>"
+                    "<ul class=\"guide-lines\">{lines}</ul>"
+                    "<p class=\"guide-link\"><a href=\"{map_url}\" target=\"_blank\" rel=\"noopener\">เปิดใน Google Maps</a></p>"
+                    "</article>"
+                ).format(
+                    name=html.escape(item.get("name", "")),
+                    city=html.escape(item.get("city", "")),
+                    lines=lines_html,
+                    map_url=html.escape(item.get("mapUrl", "")),
+                )
+            )
+        return f"<div class=\"guide-response\">{''.join(cards)}</div>"
+
+
     def _generate_ai_travel_response(self, query: str) -> Dict[str, object] | None:
         """Use OpenAI to generate a travel response for any location"""
         if not self._openai_client:
@@ -153,6 +202,10 @@ class ChatEngine:
             )
 
             content = response.choices[0].message.content
+            
+            # Check if content is None
+            if not content:
+                return None
             
             # Try to extract JSON from the response
             json_start = content.find('{')
@@ -214,6 +267,11 @@ class ChatEngine:
             )
         
         return f"<div class=\"guide-response\">{''.join(cards)}</div>"
+
+    def _old_build_reply(self, user_text: str) -> Dict[str, object]:
+        """Old province-based reply logic (kept for reference)"""
+        cleaned = user_text.strip()
+        if not cleaned:
             return self.append_assistant("ลองพิมพ์ชื่อจังหวัดหรือสไตล์ทริปที่อยากไปนะคะ")
 
         province = self._resolve_province(cleaned)
@@ -329,11 +387,13 @@ class ChatEngine:
                 aliases[self._normalize(value)] = province
         return aliases
 
-    def _looks_travel_related(self, user_input: str) -> bool:
+    def _looks_travel_related(self, user_input: str, destinations: List[Dict[str, str]] | None = None) -> bool:
         normalized = self._normalize(user_input)
         if any(keyword in normalized for keyword in self._normalized_keywords):
             return True
         if any(name in normalized for name in self._normalized_dest_names):
+            return True
+        if destinations:  # If we have destination matches, it's travel-related
             return True
         if self._resolve_province(user_input):
             return True

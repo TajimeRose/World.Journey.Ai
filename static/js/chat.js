@@ -203,7 +203,8 @@
   }
 
   function showCancelButton() {
-    if (!elements.composer) return;
+    if (!elements.composer || !elements.sendButton) return;
+    
     let cancelBtn = document.getElementById('cancel-ai-button');
     if (!cancelBtn) {
       cancelBtn = document.createElement('button');
@@ -212,15 +213,23 @@
       cancelBtn.className = 'cancel-ai-btn';
       cancelBtn.innerHTML = '✕ ยกเลิก';
       cancelBtn.addEventListener('click', cancelAIRequest);
-      elements.composer.appendChild(cancelBtn);
+      // Insert cancel button right after send button
+      elements.sendButton.parentNode.insertBefore(cancelBtn, elements.sendButton.nextSibling);
     }
-    cancelBtn.style.display = 'inline-flex';
+    
+    // Hide send button and show cancel button
+    elements.sendButton.style.display = 'none';
+    cancelBtn.classList.add('show');
   }
 
   function hideCancelButton() {
     const cancelBtn = document.getElementById('cancel-ai-button');
     if (cancelBtn) {
-      cancelBtn.style.display = 'none';
+      cancelBtn.classList.remove('show');
+    }
+    // Show send button again
+    if (elements.sendButton) {
+      elements.sendButton.style.display = 'inline-flex';
     }
   }
 
