@@ -97,7 +97,10 @@ class ChatEngine:
             try:
                 ai_response = self._generate_ai_travel_response(cleaned)
                 if ai_response:
-                    return self.append_assistant(ai_response["text"], html=ai_response.get("html"))
+                    text_str = str(ai_response.get("text", ""))
+                    html_str = ai_response.get("html")
+                    html_val = str(html_str) if html_str else None
+                    return self.append_assistant(text_str, html=html_val)
             except Exception as e:
                 print(f"OpenAI error: {e}")
         
@@ -109,7 +112,7 @@ class ChatEngine:
             "ยังไม่เจอข้อมูลที่เกี่ยวข้อง ลองบอกชื่อเมือง ประเทศ หรือสไตล์ทริปเพิ่มเติมอีกนิดนะคะ"
         )
 
-    def _generate_ai_travel_response(self, query: str) -> Dict[str, str] | None:
+    def _generate_ai_travel_response(self, query: str) -> Dict[str, object] | None:
         """Use OpenAI to generate a travel response for any location"""
         if not self._openai_client:
             return None
@@ -155,10 +158,11 @@ class ChatEngine:
                     "html": html_content
                 }
             else:
-                # If JSON parsing fails, return the raw response
+                # If JSON parsing fails, return the raw response as plain text
+                plain_html = f'<div class="guide-response"><p>{html.escape(content)}</p></div>'
                 return {
-                    "text": content,
-                    "html": None
+                    "text": content[:200] + "..." if len(content) > 200 else content,
+                    "html": plain_html
                 }
 
         except Exception as e:
