@@ -41,6 +41,9 @@
       userControls.hidden = true;
       userControls.classList.remove('is-visible');
     }
+    if (userNameNode) userNameNode.textContent = GUEST_NAME;
+    if (userEmailNode) userEmailNode.textContent = '';
+    updateAvatar(GUEST_NAME);
     broadcastAuthChange(GUEST_NAME, '', { guest: true });
   }
 
@@ -95,6 +98,7 @@
     logoutButton.addEventListener('click', async () => {
       try {
         await signOut(auth);
+        showGuestView();
       } catch (error) {
         console.error('Sign out failed', error);
       }

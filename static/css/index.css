@@ -152,7 +152,7 @@ a:focus {
 
 .landing-planet {
     position: relative;
-    width: min(420px, 70vw);
+    width: min(300px, 40vw);
     margin: 0 auto;
     aspect-ratio: 1;
     display: grid;
@@ -179,6 +179,7 @@ a:focus {
     from {
         transform: rotate(0deg);
     }
+
     to {
         transform: rotate(360deg);
     }

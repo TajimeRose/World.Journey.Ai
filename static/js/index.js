@@ -67,6 +67,21 @@
       input.focus();
       return;
     }
+    // store search query to Firebase Realtime Database (non-blocking)
+    try {
+      if (window.__FIREBASE__ && window.__FIREBASE__.dbApi) {
+        const dbApi = window.__FIREBASE__.dbApi;
+        const key = `searches/${Date.now()}_${Math.random().toString(36).slice(2, 8)}`;
+        dbApi.set(dbApi.ref(key), {
+          query: value,
+          createdAt: new Date().toISOString(),
+          source: 'index',
+        });
+      }
+    } catch (err) {
+      // ignore errors writing to DB so UX is unaffected
+      console.warn('Failed to write search to Firebase', err);
+    }
     const params = new URLSearchParams({ q: value });
     window.location.href = `/chat?${params.toString()}`;
   }
