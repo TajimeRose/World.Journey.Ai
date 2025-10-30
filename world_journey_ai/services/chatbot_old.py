@@ -1,7 +1,6 @@
-from __future__ import annotations
+﻿from __future__ import annotations
 
 import html
-import json
 import os
 import unicodedata
 from typing import Dict, List
@@ -75,130 +74,25 @@ class ChatEngine:
         if not cleaned:
             return self.append_assistant("ลองพิมพ์ชื่อเมืองหรือสไตล์การเดินทางที่อยากไปนะคะ")
 
-        # Check Bangkok first (special case with pre-built guides)
+        destinations = self._search_destinations(cleaned)
+        if not self._looks_travel_related(cleaned, destinations):
+            return self.append_assistant(TRAVEL_ONLY_MESSAGE)
+
         if self._matches_bangkok(cleaned):
             html_block = build_bangkok_guides_html()
             text = "นี่คือทริปกรุงเทพที่น้องปลาทูจัดไว้ให้ ลองเลือกหรือปรับตามเวลาได้เลยนะคะ"
             return self.append_assistant(text, html=html_block)
 
-        # Try local destinations first
-        destinations = self._search_destinations(cleaned)
-        
-        # If we have local matches, use them
-        if destinations:
-            suggestions_html = self._build_suggestions_html(destinations[:3])
-            summary = (
-                f"น้องปลาทูรวบรวมที่เที่ยวที่น่าจะตรงกับ "{cleaned}" มาให้ 3 ตัวเลือกแรก ลองดูรายละเอียดด้านล่างได้เลยนะคะ"
+        if not destinations:
+            return self.append_assistant(
+                "ยังไม่เจอข้อมูลที่เกี่ยวข้อง ลองบอกชื่อเมือง ประเทศ หรือสไตล์ทริปเพิ่มเติมอีกนิดนะคะ"
             )
-            return self.append_assistant(summary, html=suggestions_html)
 
-        # If no local match and OpenAI is available, use AI to generate response
-        if self._openai_client:
-            try:
-                ai_response = self._generate_ai_travel_response(cleaned)
-                if ai_response:
-                    return self.append_assistant(ai_response["text"], html=ai_response.get("html"))
-            except Exception as e:
-                print(f"OpenAI error: {e}")
-        
-        # Fallback: check if it looks travel-related
-        if not self._looks_travel_related(cleaned, destinations):
-            return self.append_assistant(TRAVEL_ONLY_MESSAGE)
-
-        return self.append_assistant(
-            "ยังไม่เจอข้อมูลที่เกี่ยวข้อง ลองบอกชื่อเมือง ประเทศ หรือสไตล์ทริปเพิ่มเติมอีกนิดนะคะ"
+        suggestions_html = self._build_suggestions_html(destinations[:3])
+        summary = (
+            f"น้องปลาทูรวบรวมที่เที่ยวที่น่าจะตรงกับ “{cleaned}” มาให้ 3 ตัวเลือกแรก ลองดูรายละเอียดด้านล่างได้เลยนะคะ"
         )
-
-    def _generate_ai_travel_response(self, query: str) -> Dict[str, str] | None:
-        """Use OpenAI to generate a travel response for any location"""
-        if not self._openai_client:
-            return None
-
-        system_prompt = """คุณคือน้องปลาทู AI ผู้ช่วยวางแผนการท่องเที่ยว 
-คุณต้องตอบคำถามเกี่ยวกับการท่องเที่ยวเท่านั้น โดยเฉพาะสถานที่ท่องเที่ยวในประเทศไทย
-ให้คำแนะนำแบบกันเองและเป็นมิตร ใช้ภาษาไทย
-ถ้าผู้ใช้ถามเกี่ยวกับสถานที่ท่องเที่ยว ให้แนะนำ 3-5 สถานที่ยอดนิยมหรือกิจกรรมที่น่าสนใจ พร้อมคำอธิบายสั้นๆ
-จัดรูปแบบเป็น JSON ที่มี: 
-{
-  "location": "ชื่อสถานที่",
-  "attractions": [
-    {"name": "ชื่อสถานที่ท่องเที่ยว", "description": "คำอธิบายสั้นๆ", "type": "ประเภท เช่น ทะเล ภูเขา วัด ช้อปปิ้ง"}
-  ],
-  "summary": "สรุปแบบกันเองสั้นๆ"
-}"""
-
-        try:
-            response = self._openai_client.chat.completions.create(
-                model="gpt-4",
-                messages=[
-                    {"role": "system", "content": system_prompt},
-                    {"role": "user", "content": f"ช่วยแนะนำที่เที่ยวเกี่ยวกับ: {query}"}
-                ],
-                temperature=0.7,
-                max_tokens=800
-            )
-
-            content = response.choices[0].message.content
-            
-            # Try to extract JSON from the response
-            json_start = content.find('{')
-            json_end = content.rfind('}') + 1
-            if json_start >= 0 and json_end > json_start:
-                json_str = content[json_start:json_end]
-                data = json.loads(json_str)
-                
-                # Build HTML from AI response
-                html_content = self._build_ai_response_html(data)
-                
-                return {
-                    "text": data.get("summary", f"นี่คือข้อมูลเกี่ยวกับ {query} ที่น้องปลาทูหามาให้นะคะ"),
-                    "html": html_content
-                }
-            else:
-                # If JSON parsing fails, return the raw response
-                return {
-                    "text": content,
-                    "html": None
-                }
-
-        except Exception as e:
-            print(f"AI generation error: {e}")
-            return None
-
-    def _build_ai_response_html(self, data: Dict) -> str:
-        """Build HTML from AI-generated travel data"""
-        attractions = data.get("attractions", [])
-        if not attractions:
-            return ""
-
-        cards: List[str] = []
-        location = html.escape(data.get("location", ""))
-        
-        for item in attractions:
-            name = html.escape(item.get("name", ""))
-            description = html.escape(item.get("description", ""))
-            item_type = html.escape(item.get("type", ""))
-            
-            map_query = f"{name} {location}".replace(" ", "+")
-            map_url = f"https://www.google.com/maps/search/?api=1&query={map_query}"
-            
-            cards.append(
-                (
-                    "<article class=\"guide-entry guide-entry--suggestion\">"
-                    "<h3>{name}</h3>"
-                    "<p class=\"guide-type\">ประเภท: {item_type}</p>"
-                    "<ul class=\"guide-lines\"><li>{description}</li></ul>"
-                    "<p class=\"guide-link\"><a href=\"{map_url}\" target=\"_blank\" rel=\"noopener\">เปิดใน Google Maps</a></p>"
-                    "</article>"
-                ).format(
-                    name=name,
-                    item_type=item_type,
-                    description=description,
-                    map_url=map_url,
-                )
-            )
-        
-        return f"<div class=\"guide-response\">{''.join(cards)}</div>"
+        return self.append_assistant(summary, html=suggestions_html)
 
     def list_messages(self) -> List[Dict[str, object]]:
         return self._store.list()
