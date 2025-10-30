@@ -17,6 +17,7 @@ __pycache__/
 .pytest_cache/
 .coverage*
 htmlcov/
+*.pyc
 
 # --- Databases / dumps ---
 *.sqlite*
@@ -33,8 +34,22 @@ backups/
 .idea/
 .DS_Store
 Thumbs.db
+desktop.ini
+*.swp
+*.swo
+*~
 
-# --- JS/Build (ถ้ามี) ---
+# --- JS/Build ---
 node_modules/
 dist/
 build/
+
+# --- Test files ---
+test_*.py
+*_test.py
+
+# --- Temporary / Cache ---
+.cache/
+tmp/
+temp/
+*.tmp
