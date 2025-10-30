@@ -1,6 +1,6 @@
-from __future__ import annotations
+﻿from __future__ import annotations
 
-from typing import Dict, List, Tuple
+from typing import Dict, List
 
 DESTINATIONS: List[Dict[str, str]] = [
     {
@@ -70,8 +70,21 @@ DESTINATIONS: List[Dict[str, str]] = [
         "mapUrl": "https://www.google.com/maps/place/Chiang+Mai",
     },
 ]
+from .province_guides import PROVINCE_GUIDES
 
-BANGKOK_KEYWORDS: Tuple[str, ...] = (
+DESTINATIONS: List[Dict[str, str]] = []
+for province, entries in PROVINCE_GUIDES.items():
+    for entry in entries[:5]:
+        DESTINATIONS.append(
+            {
+                "name": entry["name"],
+                "city": province,
+                "description": entry["summary"],
+                "mapUrl": entry["map_url"],
+            }
+        )
+
+BANGKOK_KEYWORDS = (
     "กรุงเทพ",
     "กรุงเทพมหานคร",
     "bangkok",
@@ -79,4 +92,3 @@ BANGKOK_KEYWORDS: Tuple[str, ...] = (
     "krung thep",
     "krungthep",
 )
-
