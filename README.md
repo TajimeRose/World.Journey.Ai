@@ -12,8 +12,9 @@
    ```bash
    pip install flask flask-cors
    ```
-3. ตั้งค่าตัวแปรสภาพแวดล้อมสำหรับ Firebase ตามไฟล์ `firebase_config.js`
+3. ตั้งค่าตัวแปรสภาพแวดล้อมสำหรับ Firebase ตามไฟล์ `.env`
    ```text
+   OPENAI_API_KEY=
    FIREBASE_API_KEY
    FIREBASE_AUTH_DOMAIN
    FIREBASE_PROJECT_ID
