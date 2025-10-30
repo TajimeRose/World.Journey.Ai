@@ -167,9 +167,9 @@ class ChatEngine:
         
         # Final fallback
         return self.append_assistant(
-            "Tell me about a place you'd like to know more about - any city, country, or destination worldwide."
+            "Hello! I'm Platoo, your personal travel guide. Describe any place, scenery, or atmosphere you have in mind, and I'll help you identify the perfect destination that matches what you're looking for. Whether it's a bustling city, peaceful countryside, exotic beach, or cultural landmark - just tell me what you envision!"
             if lang == "en"
-            else "บอกชื่อสถานที่ เมือง ประเทศ หรือจุดหมายที่อยากรู้จักได้เลยนะคะ ทั่วโลกก็ได้ค่ะ"
+            else "สวัสดีค่ะ! น้องปลาทูค่ะ ขอเป็นผู้ช่วยในการแนะนำสถานที่ท่องเที่ยวและจังหวัดต่างๆ ที่น่าสนใจให้คุณได้ไหมคะ บอกลักษณะสถานที่หรือบรรยากาศที่อยากไปเที่ยวมาได้เลยค่ะ น้องปลาทูจะช่วยหาจุดหมายที่เหมาะกับความต้องการของคุณค่ะ"
         )
 
     def _matches_bangkok(self, query: str) -> bool:

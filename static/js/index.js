@@ -1,4 +1,45 @@
 (() => {
+  // Mobile menu functionality
+  function initMobileMenu() {
+    const mobileMenuBtn = document.querySelector('.mobile-menu-btn');
+    const navMenu = document.querySelector('.nav-menu');
+
+    if (mobileMenuBtn && navMenu) {
+      mobileMenuBtn.addEventListener('click', () => {
+        const isActive = navMenu.classList.contains('active');
+
+        if (isActive) {
+          navMenu.classList.remove('active');
+          mobileMenuBtn.classList.remove('active');
+          mobileMenuBtn.setAttribute('aria-expanded', 'false');
+        } else {
+          navMenu.classList.add('active');
+          mobileMenuBtn.classList.add('active');
+          mobileMenuBtn.setAttribute('aria-expanded', 'true');
+        }
+      });
+
+      // Close menu when clicking outside
+      document.addEventListener('click', (e) => {
+        if (!mobileMenuBtn.contains(e.target) && !navMenu.contains(e.target)) {
+          navMenu.classList.remove('active');
+          mobileMenuBtn.classList.remove('active');
+          mobileMenuBtn.setAttribute('aria-expanded', 'false');
+        }
+      });
+
+      // Close menu when clicking on nav links
+      const navLinks = navMenu.querySelectorAll('.nav-link');
+      navLinks.forEach(link => {
+        link.addEventListener('click', () => {
+          navMenu.classList.remove('active');
+          mobileMenuBtn.classList.remove('active');
+          mobileMenuBtn.setAttribute('aria-expanded', 'false');
+        });
+      });
+    }
+  }
+
   const form = document.getElementById('journey-form');
   const input = document.getElementById('destination-input');
   const micButton = document.getElementById('mic-button');
@@ -135,6 +176,7 @@
   });
 
   resetFileInput();
+  initMobileMenu(); // Initialize mobile menu
 })();
 
 

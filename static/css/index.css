@@ -1,3 +1,7 @@
+* {
+    box-sizing: border-box;
+}
+
 body {
     margin: 0;
     min-height: 100vh;
@@ -40,6 +44,34 @@ a:focus {
     display: flex;
     align-items: center;
     justify-content: space-between;
+    position: relative;
+}
+
+/* Mobile menu button */
+.mobile-menu-btn {
+    display: none;
+    flex-direction: column;
+    background: none;
+    border: none;
+    cursor: pointer;
+    padding: 0.3rem;
+    z-index: 1000;
+}
+
+.hamburger {
+    width: 22px;
+    height: 2.5px;
+    background: #f8fafc;
+    margin: 2.5px 0;
+    transition: 0.3s;
+    border-radius: 2px;
+}
+
+/* Navigation menu */
+.nav-menu {
+    display: flex;
+    align-items: center;
+    gap: 2rem;
 }
 
 .brand {
@@ -48,6 +80,8 @@ a:focus {
     gap: 0.75rem;
     font-weight: 600;
     letter-spacing: 0.08em;
+    text-decoration: none;
+    color: inherit;
 }
 
 .brand span {
@@ -63,6 +97,7 @@ a:focus {
     font-weight: 700;
     display: grid;
     place-items: center;
+    flex-shrink: 0;
 }
 
 .nav-links {
@@ -70,12 +105,23 @@ a:focus {
     gap: 0.8rem;
 }
 
-.nav-links a {
+.nav-link {
     padding: 0.55rem 1.1rem;
     border-radius: 999px;
     color: rgba(248, 250, 252, 0.82);
     background: rgba(30, 136, 229, 0.14);
     transition: box-shadow 0.2s ease, background 0.2s ease;
+    text-decoration: none;
+    white-space: nowrap;
+}
+
+.nav-link:hover,
+.nav-link:focus,
+.nav-link.active {
+    background: rgba(255, 213, 79, 0.4);
+    box-shadow: 0 10px 28px rgba(255, 213, 79, 0.25);
+    color: #081229;
+    text-decoration: none;
 }
 
 
@@ -83,6 +129,86 @@ a:focus {
     display: flex;
     align-items: center;
     gap: 0.75rem;
+}
+
+/* Mobile responsive styles */
+@media (max-width: 768px) {
+    .mobile-menu-btn {
+        display: flex;
+    }
+
+    .nav-menu {
+        position: absolute;
+        top: 100%;
+        left: 0;
+        right: 0;
+        background: linear-gradient(135deg, rgba(8, 18, 41, 0.95), rgba(10, 25, 47, 0.95));
+        backdrop-filter: blur(12px);
+        border-top: 1px solid rgba(30, 136, 229, 0.25);
+        flex-direction: column;
+        padding: 0.75rem 1rem;
+        gap: 0.5rem;
+        transform: translateY(-100%);
+        opacity: 0;
+        visibility: hidden;
+        transition: all 0.3s ease;
+    }
+
+    .nav-menu.active {
+        transform: translateY(0);
+        opacity: 1;
+        visibility: visible;
+    }
+
+    .nav-links {
+        flex-direction: column;
+        width: 100%;
+        gap: 0.25rem;
+    }
+
+    .nav-link {
+        text-align: center;
+        width: 100%;
+        padding: 0.4rem 0.8rem;
+        font-size: 0.9rem;
+    }
+
+    .nav-auth {
+        width: 100%;
+        justify-content: center;
+        flex-direction: column;
+        gap: 0.25rem;
+    }
+
+    .nav-user {
+        text-align: center;
+    }
+
+    .navbar {
+        padding: 0.6rem 1rem;
+    }
+
+    .brand .mark {
+        width: 36px;
+        height: 36px;
+    }
+
+    .brand span:last-child {
+        font-size: 0.9rem;
+    }
+
+    /* Hamburger animation */
+    .mobile-menu-btn.active .hamburger:nth-child(1) {
+        transform: rotate(45deg) translate(6px, 6px);
+    }
+
+    .mobile-menu-btn.active .hamburger:nth-child(2) {
+        opacity: 0;
+    }
+
+    .mobile-menu-btn.active .hamburger:nth-child(3) {
+        transform: rotate(-45deg) translate(6px, -6px);
+    }
 }
 
 .nav-user {
@@ -143,7 +269,7 @@ a:focus {
 }
 
 .landing {
-    max-width: 960px;
+    max-width: 100%;
     width: 100%;
     text-align: center;
     display: grid;
@@ -152,11 +278,32 @@ a:focus {
 
 .landing-planet {
     position: relative;
-    width: min(300px, 40vw);
+    width: min(360px, 90vw);
     margin: 0 auto;
     aspect-ratio: 1;
-    display: grid;
-    place-items: center;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+}
+
+.landing-planet model-viewer {
+    width: 100% !important;
+    height: 100% !important;
+    max-width: 360px !important;
+    max-height: 360px !important;
+    margin: 0 auto;
+    display: block;
+}
+
+/* Ensure proper centering on all devices */
+.landing {
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    justify-content: center;
+    text-align: center;
+    padding: 2rem 1rem;
+    gap: clamp(2rem, 5vw, 3rem);
 }
 
 .landing-planet::before {
@@ -219,12 +366,15 @@ a:focus {
     display: grid;
     gap: 1rem;
     backdrop-filter: blur(10px);
+    max-width: 680px;
+    margin: 0 auto;
 }
 
 .search-input-group {
     display: grid;
     grid-template-columns: 1fr auto auto;
     gap: 0.75rem;
+    align-items: center;
 }
 
 .search-input-group input {
@@ -235,6 +385,7 @@ a:focus {
     padding: 0.95rem 1.2rem;
     font-size: 1rem;
     transition: border-color 0.2s ease, box-shadow 0.2s ease;
+    min-width: 0;
 }
 
 .search-input-group input:focus {
@@ -250,23 +401,39 @@ a:focus {
     color: #081229;
     cursor: pointer;
     transition: transform 0.18s ease, box-shadow 0.2s ease;
+    padding: 0.95rem 1.5rem;
+    white-space: nowrap;
 }
 
 .search-button.mic {
     background: rgba(30, 136, 229, 0.25);
     color: #f8fafc;
+    padding: 0.95rem 1.2rem;
 }
 
 .search-button.submit {
     background: linear-gradient(135deg, rgba(30, 136, 229, 0.95), rgba(255, 213, 79, 0.92));
     box-shadow: 0 18px 36px rgba(30, 136, 229, 0.35);
+    min-width: 120px;
 }
 
 .search-button:hover,
 .search-button:focus-visible {
-    transform: translateY(-1px);
-    box-shadow: 0 24px 46px rgba(30, 136, 229, 0.4);
+    transform: translateY(-2px);
+    box-shadow: 0 28px 52px rgba(30, 136, 229, 0.4);
     outline: none;
+}
+
+.search-button.submit:hover,
+.search-button.submit:focus-visible {
+    transform: translateY(-2px);
+    box-shadow: 0 32px 64px rgba(30, 136, 229, 0.5);
+}
+
+.search-button.mic:hover,
+.search-button.mic:focus-visible {
+    background: rgba(30, 136, 229, 0.4);
+    transform: translateY(-1px);
 }
 
 .search-addons {
@@ -331,13 +498,313 @@ a:focus {
     .navbar {
         flex-direction: column;
         gap: 0.9rem;
+        padding: 1rem 1.5rem;
+    }
+
+    .nav-links {
+        flex-direction: column;
+        gap: 0.5rem;
+        width: 100%;
+        text-align: center;
     }
 
     .search-input-group {
         grid-template-columns: 1fr;
+        gap: 0.5rem;
     }
 
     .search-button {
         width: 100%;
+        padding: 0.95rem 1.2rem;
+    }
+
+    .search-button.mic {
+        order: 1;
+    }
+
+    .search-button.submit {
+        order: 2;
+    }
+
+    .landing-planet {
+        width: min(280px, 80vw);
+    }
+
+    .landing-planet model-viewer {
+        width: 100% !important;
+        height: 100% !important;
+        max-width: 280px !important;
+        max-height: 280px !important;
+    }
+}
+
+/* Tablet optimizations */
+@media (min-width: 768px) and (max-width: 1024px) {
+    .landing-content {
+        padding: clamp(2rem, 5vw, 3rem) 2rem 3rem;
+    }
+
+    .search-form {
+        max-width: 650px;
+        margin: 0 auto;
+        padding: 1.5rem;
+    }
+
+    .search-input-group {
+        grid-template-columns: 1fr auto auto;
+        gap: 1rem;
+    }
+
+    .search-button {
+        padding: 1rem 1.5rem;
+    }
+
+    .search-button.mic {
+        padding: 1rem 1.2rem;
+    }
+
+    .landing-planet {
+        width: min(320px, 85vw);
+    }
+
+    .landing-planet model-viewer {
+        width: 100% !important;
+        height: 100% !important;
+        max-width: 320px !important;
+        max-height: 320px !important;
+    }
+}
+
+/* Tablet landscape */
+@media (min-width: 768px) and (max-width: 1024px) and (orientation: landscape) {
+    .landing-content {
+        gap: clamp(1.5rem, 3vw, 2rem);
+    }
+
+    .landing-planet {
+        width: min(280px, 80vw);
+    }
+
+    .landing-planet model-viewer {
+        width: 100% !important;
+        height: 100% !important;
+        max-width: 280px !important;
+        max-height: 280px !important;
+    }
+}
+
+@media (max-width: 480px) {
+    .site-shell {
+        padding: 0.5rem;
+    }
+
+    .navbar {
+        padding: 0.8rem 1rem;
+    }
+
+    .brand .mark {
+        width: 36px;
+        height: 36px;
+        font-size: 0.9rem;
+    }
+
+    .brand span:not(.mark) {
+        font-size: 0.9rem;
+    }
+
+    .landing-header h1 {
+        font-size: clamp(1.8rem, 5vw, 2.5rem);
+        margin-bottom: 0.8rem;
+    }
+
+    .landing-subtitle {
+        font-size: clamp(0.9rem, 2.5vw, 1rem);
+        margin-bottom: 1.5rem;
+    }
+
+    .search-form {
+        padding: 1rem;
+        border-radius: 20px;
+    }
+
+    .search-input-group input {
+        padding: 0.8rem 1rem;
+        font-size: 0.95rem;
+        border-radius: 16px;
+    }
+
+    .search-button {
+        padding: 0.8rem 1rem;
+        border-radius: 16px;
+        font-size: 0.95rem;
+    }
+
+    .search-addons {
+        font-size: 0.85rem;
+        gap: 0.5rem;
+    }
+
+    .landing-planet {
+        width: min(240px, 75vw);
+    }
+
+    .landing-planet model-viewer {
+        width: 100% !important;
+        height: 100% !important;
+        max-width: 240px !important;
+        max-height: 240px !important;
+    }
+
+    .footer {
+        padding: 1rem;
+        font-size: 0.8rem;
+    }
+}
+
+@media (max-width: 360px) {
+    .site-shell {
+        padding: 0.25rem;
+    }
+
+    .landing-header h1 {
+        font-size: clamp(1.6rem, 6vw, 2.2rem);
+    }
+
+    .search-form {
+        padding: 0.8rem;
+    }
+
+    .search-input-group input,
+    .search-button {
+        padding: 0.7rem 0.9rem;
+        font-size: 0.9rem;
+    }
+
+    .landing-planet {
+        width: min(200px, 70vw);
+    }
+
+    .landing-planet model-viewer {
+        width: 100% !important;
+        height: 100% !important;
+        max-width: 200px !important;
+        max-height: 200px !important;
+    }
+}
+
+/* Large screen optimizations */
+/* Large screen optimizations */
+@media (min-width: 1024px) {
+    .search-form {
+        max-width: 720px;
+        margin: 0 auto;
+        padding: 2rem;
+        border-radius: 32px;
+    }
+
+    .search-input-group {
+        grid-template-columns: 1fr auto auto;
+        gap: 1.2rem;
+        align-items: center;
+    }
+
+    .search-input-group input {
+        padding: 1.1rem 1.5rem;
+        font-size: 1.1rem;
+        border-radius: 20px;
+    }
+
+    .search-button {
+        padding: 1.1rem 2rem;
+        border-radius: 20px;
+        font-size: 1rem;
+        min-width: 140px;
+    }
+
+    .search-button.mic {
+        padding: 1.1rem 1.5rem;
+        min-width: 60px;
+    }
+
+    .search-addons {
+        gap: 1rem;
+        font-size: 1rem;
+    }
+
+    .landing-header h1 {
+        font-size: clamp(2.5rem, 4vw, 3.5rem);
+    }
+
+    .landing-subtitle {
+        font-size: 1.2rem;
+        max-width: 600px;
+        margin: 0 auto;
+    }
+}
+
+@media (min-width: 1400px) {
+    .navbar {
+        max-width: 1200px;
+    }
+
+    .landing-content {
+        max-width: 1000px;
+    }
+
+    .search-form {
+        max-width: 800px;
+        margin: 0 auto;
+        padding: 2.5rem;
+    }
+
+    .search-input-group input {
+        padding: 1.2rem 1.8rem;
+        font-size: 1.1rem;
+    }
+
+    .search-button {
+        padding: 1.2rem 2.5rem;
+        font-size: 1.05rem;
+        min-width: 160px;
+    }
+
+    .search-button.mic {
+        padding: 1.2rem 1.8rem;
+    }
+}
+
+@media (min-width: 1920px) {
+    .site-shell {
+        padding: 0 2rem;
+    }
+
+    .landing-content {
+        max-width: 1200px;
+    }
+
+    .search-form {
+        max-width: 900px;
+        padding: 3rem;
+    }
+
+    .search-input-group input {
+        padding: 1.4rem 2rem;
+        font-size: 1.2rem;
+    }
+
+    .search-button {
+        padding: 1.4rem 3rem;
+        font-size: 1.1rem;
+        min-width: 180px;
+    }
+
+    .search-button.mic {
+        padding: 1.4rem 2rem;
+        min-width: 80px;
+    }
+
+    .landing-planet model-viewer {
+        width: 400px !important;
+        height: 400px !important;
     }
 }
