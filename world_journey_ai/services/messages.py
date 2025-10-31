@@ -56,10 +56,12 @@ class MessageStore:
         if not text.strip():
             raise ValueError("Message text cannot be empty")
             
+        timestamp = self._now_iso()
         entry: MessageDict = {
+            "id": timestamp,  # Use timestamp as unique ID
             "role": role.strip(),
             "text": text.strip(),
-            "createdAt": self._now_iso(),
+            "createdAt": timestamp,
         }
         
         if html and html.strip():

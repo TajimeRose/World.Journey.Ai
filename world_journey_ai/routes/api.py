@@ -21,19 +21,29 @@ MAX_MESSAGE_LENGTH = 1000
 DEFAULT_ERROR_MESSAGE = "เกิดข้อผิดพลาด กรุณาลองใหม่อีกครั้ง"
 
 
-def _get_chat_engine():
+def _get_chat_engine(ai_mode: str = "chat"):
     """Get chat engine from Flask app extensions with error handling.
     
+    Args:
+        ai_mode: The AI mode - 'chat' for general conversation or 'guide' for trip planning
+    
     Returns:
-        ChatEngine: The initialized chat engine
+        BaseAIEngine: The initialized AI engine (ChatEngine or GuideEngine)
         
     Raises:
         RuntimeError: If chat engine is not configured
     """
-    engine = current_app.extensions.get("chat_engine")
+    if ai_mode == "guide":
+        engine = current_app.extensions.get("guide_engine")
+        if engine is None:
+            # Fallback to chat engine if guide engine not configured
+            engine = current_app.extensions.get("chat_engine")
+    else:
+        engine = current_app.extensions.get("chat_engine")
+    
     if engine is None:
-        current_app.logger.error("Chat engine not found in app extensions")
-        raise RuntimeError("Chat engine not configured")
+        current_app.logger.error("AI engine not found in app extensions")
+        raise RuntimeError("AI engine not configured")
     return engine
 
 
@@ -176,17 +186,24 @@ def create_message():
     """Create a new message and generate AI response.
     
     Request Body:
-        JSON object with 'text' field containing the message
+        JSON object with:
+        - 'text' field containing the message
+        - 'mode' field (optional) specifying AI mode: 'chat' or 'guide'
         
     Returns:
         JSON response with user message and AI assistant response
     """
     try:
-        engine = _get_chat_engine()
-        
         # Parse and validate request
         payload = request.get_json(silent=True) or {}
         text = str(payload.get("text") or "").strip()
+        ai_mode = payload.get("mode", "chat")  # default to chat mode
+        
+        # Validate AI mode
+        if ai_mode not in ["chat", "guide"]:
+            ai_mode = "chat"
+        
+        engine = _get_chat_engine(ai_mode)
         
         # Validate message text
         error_msg = _validate_message_text(text)
@@ -208,6 +225,104 @@ def create_message():
     except Exception as e:
         current_app.logger.error(f"Unexpected error in create_message: {e}")
         return jsonify(*_create_error_response("เกิดข้อผิดพลาดในการสร้างข้อความ กรุณาลองใหม่อีกครั้ง"))
+
+
+@api_bp.route("/feedback", methods=["POST"])
+def submit_feedback():
+    """Submit feedback for an AI response.
+    
+    Request Body:
+        JSON object with:
+        - 'messageId' field containing the message timestamp
+        - 'feedback' field containing 'like' or 'dislike'
+        - 'comment' field (optional) containing additional feedback text
+        
+    Returns:
+        JSON response with success status
+    """
+    try:
+        # Parse and validate request
+        payload = request.get_json(silent=True) or {}
+        message_id = str(payload.get("messageId") or "").strip()
+        feedback = str(payload.get("feedback") or "").strip().lower()
+        comment = str(payload.get("comment") or "").strip()
+        
+        # Validate feedback type
+        if feedback not in ["like", "dislike"]:
+            return jsonify(*_create_error_response("ประเภทการให้ความเห็นไม่ถูกต้อง", 400))
+        
+        if not message_id:
+            return jsonify(*_create_error_response("ไม่พบ ID ของข้อความ", 400))
+        
+        # Try to store feedback in MongoDB
+        try:
+            events = _get_events_collection()
+            feedback_doc = {
+                "type": "feedback",
+                "messageId": message_id,
+                "feedback": feedback,
+                "comment": comment,
+                "uid": payload.get("uid") or request.headers.get("X-User-Id"),
+                "created_at": datetime.now(timezone.utc),
+            }
+            events.insert_one(feedback_doc)
+            
+        except RuntimeError:
+            # MongoDB not available, but don't fail the request
+            current_app.logger.warning("MongoDB not available for feedback storage")
+        except Exception as e:
+            # Log error but don't fail the request
+            current_app.logger.error(f"Failed to store feedback in MongoDB: {e}")
+        
+        return jsonify({
+            "success": True,
+            "message": "ขอบคุณสำหรับความเห็น!" if feedback == "like" else "ขอบคุณสำหรับความเห็น เราจะนำไปปรับปรุง!"
+        })
+        
+    except Exception as e:
+        current_app.logger.error(f"Unexpected error in submit_feedback: {e}")
+        return jsonify(*_create_error_response("เกิดข้อผิดพลาดในการส่งความเห็น"))
+
+
+@api_bp.route("/feedback/stats", methods=["GET"])
+def get_feedback_stats():
+    """Get feedback statistics.
+    
+    Returns:
+        JSON response with like/dislike counts
+    """
+    try:
+        events = _get_events_collection()
+        
+        # Count likes and dislikes
+        likes = events.count_documents({"type": "feedback", "feedback": "like"})
+        dislikes = events.count_documents({"type": "feedback", "feedback": "dislike"})
+        total = likes + dislikes
+        
+        return jsonify({
+            "success": True,
+            "stats": {
+                "likes": likes,
+                "dislikes": dislikes,
+                "total": total,
+                "likePercentage": round((likes / total * 100) if total > 0 else 0, 1)
+            }
+        })
+        
+    except RuntimeError:
+        # MongoDB not available
+        return jsonify({
+            "success": True,
+            "stats": {
+                "likes": 0,
+                "dislikes": 0,
+                "total": 0,
+                "likePercentage": 0
+            }
+        })
+    except Exception as e:
+        current_app.logger.error(f"Error getting feedback stats: {e}")
+        return jsonify(*_create_error_response("เกิดข้อผิดพลาดในการโหลดสถิติ"))
 
 
 @api_bp.errorhandler(404)

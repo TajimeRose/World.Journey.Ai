@@ -18,7 +18,7 @@ from flask_cors import CORS
 
 from .routes.api import api_bp
 from .routes.pages import pages_bp
-from .services.chatbot import ChatEngine
+from .services.chatbot import ChatEngine, GuideEngine
 from .services.destinations import DESTINATIONS
 from .services.messages import MessageStore
 
@@ -111,10 +111,12 @@ def _initialize_services(app: Flask) -> None:
         # Initialize services
         message_store = MessageStore(limit=200)
         chat_engine = ChatEngine(message_store, DESTINATIONS)
+        guide_engine = GuideEngine(message_store, DESTINATIONS)
         
         # Store in app extensions for later access
         app.extensions["message_store"] = message_store
         app.extensions["chat_engine"] = chat_engine
+        app.extensions["guide_engine"] = guide_engine
         
         app.logger.info("Services initialized successfully")
         

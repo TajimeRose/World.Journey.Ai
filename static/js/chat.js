@@ -119,6 +119,7 @@
     const bubble = document.createElement('div');
     bubble.className = 'message-bubble';
     bubble.dataset.role = message.role;
+    bubble.dataset.messageId = message.id || message.createdAt; // Use ID or fallback to timestamp
     bubble.classList.add(
       message.role === 'assistant'
         ? 'message-bubble--assistant'
@@ -143,6 +144,29 @@
       author.textContent = analyseMessageRole(message.role);
     }
     meta.appendChild(author);
+
+    // Add feedback buttons for assistant messages
+    if (message.role === 'assistant') {
+      const feedbackContainer = document.createElement('div');
+      feedbackContainer.className = 'message-feedback';
+
+      const likeBtn = document.createElement('button');
+      likeBtn.className = 'feedback-btn feedback-btn--like';
+      likeBtn.setAttribute('aria-label', 'ชอบคำตอบนี้');
+      likeBtn.innerHTML = '👍';
+      likeBtn.addEventListener('click', () => submitFeedback(message.id || message.createdAt, 'like', likeBtn));
+
+      const dislikeBtn = document.createElement('button');
+      dislikeBtn.className = 'feedback-btn feedback-btn--dislike';
+      dislikeBtn.setAttribute('aria-label', 'ไม่ชอบคำตอบนี้');
+      dislikeBtn.innerHTML = '👎';
+      dislikeBtn.addEventListener('click', () => submitFeedback(message.id || message.createdAt, 'dislike', dislikeBtn));
+
+      feedbackContainer.appendChild(likeBtn);
+      feedbackContainer.appendChild(dislikeBtn);
+      meta.appendChild(feedbackContainer);
+    }
+
     bubble.appendChild(meta);
 
     const body = document.createElement('div');
@@ -371,7 +395,7 @@
       const response = await fetch('/api/messages', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ role: 'user', text }),
+        body: JSON.stringify({ role: 'user', text, mode: 'chat' }),
         signal: state.abortController.signal,
       });
       if (!response.ok) {
@@ -587,6 +611,65 @@
       });
     }
   });
+
+  async function submitFeedback(messageId, feedbackType, buttonElement) {
+    // Submit user feedback for an AI response
+    if (!messageId) {
+      console.error('No message ID provided for feedback');
+      return;
+    }
+
+    // Disable button to prevent double-clicks
+    buttonElement.disabled = true;
+    const originalContent = buttonElement.innerHTML;
+    buttonElement.innerHTML = '⏳';
+
+    try {
+      const response = await fetch('/api/feedback', {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify({
+          messageId: messageId,
+          feedback: feedbackType,
+          uid: state.uid || null
+        })
+      });
+
+      const data = await response.json();
+
+      if (data.success) {
+        // Update button appearance to show feedback was submitted
+        buttonElement.innerHTML = feedbackType === 'like' ? '✅' : '❌';
+        buttonElement.classList.add('feedback-btn--submitted');
+        buttonElement.setAttribute('aria-label', 'ส่งความเห็นแล้ว');
+
+        // Disable both feedback buttons for this message
+        const messageRow = buttonElement.closest('.message-row');
+        if (messageRow) {
+          const allFeedbackBtns = messageRow.querySelectorAll('.feedback-btn');
+          allFeedbackBtns.forEach(btn => {
+            btn.disabled = true;
+            btn.classList.add('feedback-btn--submitted');
+          });
+        }
+
+        // Show success toast
+        showToast(data.message || 'ขอบคุณสำหรับความเห็น!', 'success');
+      } else {
+        throw new Error(data.error || 'Failed to submit feedback');
+      }
+    } catch (error) {
+      console.error('Error submitting feedback:', error);
+
+      // Restore button state on error
+      buttonElement.innerHTML = originalContent;
+      buttonElement.disabled = false;
+
+      showToast('เกิดข้อผิดพลาดในการส่งความเห็น กรุณาลองใหม่อีกครั้ง', 'error');
+    }
+  }
 
   updateUserIdentity(state.userDisplayName);
   bindEvents();
