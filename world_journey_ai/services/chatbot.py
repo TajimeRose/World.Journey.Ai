@@ -23,51 +23,27 @@ except ImportError:
     OpenAIClient = None  # type: ignore
 
 TRAVEL_KEYWORDS = (
-    # Thai
-    "เที่ยว",
-    "ทริป",
-    "ที่เที่ยว",
-    "ท่องเที่ยว",
-    "อยากเที่ยว",
-    "อยากไป",
-    "ไปเที่ยว",
-    "เดินทาง",
-    "ทะเล",
-    "ภูเขา",
-    "วัด",
-    "ตลาด",
-    "คาเฟ่",
-    "โฮมสเตย์",
-    "น้ำตก",
-    "ดำน้ำ",
-    "เดินป่า",
-    "เกาะ",
-    "ไนท์มาร์เก็ต",
-    "ตลาดน้ำ",
-    # English
-    "travel",
-    "trip",
-    "itinerary",
-    "journey",
-    "vacation",
-    "holiday",
-    "beach",
-    "mountain",
-    "temple",
-    "market",
-    "night market",
-    "floating market",
-    "cafe",
-    "coffee shop",
-    "homestay",
-    "waterfall",
-    "snorkel",
-    "snorkeling",
-    "diving",
-    "hike",
-    "hiking",
-    "island",
-    "old town",
+    # Thai - Basic travel terms
+    "เที่ยว", "ทริป", "ที่เที่ยว", "ท่องเที่ยว", "อยากเที่ยว", "อยากไป", "ไปเที่ยว", "เดินทาง",
+    "ทะเล", "ภูเขา", "วัด", "ตลาด", "คาเฟ่", "โฮมสเตย์", "น้ำตก", "ดำน้ำ", "เดินป่า", "เกาะ",
+    "ไนท์มาร์เก็ต", "ตลาดน้ำ", "ชายหาด", "อุทยาน", "สวน", "พิพิธภัณฑ์", "อนุสาวรีย์",
+    
+    # Thai - Administrative divisions and location queries
+    "จังหวัด", "อำเภอ", "ตำบล", "หมู่บ้าน", "เขต", "แขวง", "ย่าน", "ชุมชน", "หมู่", "บ้าน",
+    "อยู่ที่ไหน", "ใกล้กับ", "ห่างจาก", "มีอะไรบ้าง", "น่าสนใจ", "แนะนำ", "ช่วยบอก", "อยากรู้",
+    "มีที่เที่ยว", "สถานที่ท่องเที่ยว", "จุดท่องเที่ยว", "แหล่งท่องเที่ยว", "ไปเที่ยวที่ไหนดี",
+    "ควรไป", "น่าไป", "มีชื่อเสียง", "เด็ด", "ดัง", "โด่งดัง", "มีอะไรดีๆ", "น่าเข้าชม",
+    
+    # English - Basic travel terms  
+    "travel", "trip", "itinerary", "journey", "vacation", "holiday", "beach", "mountain", "temple",
+    "market", "night market", "floating market", "cafe", "coffee shop", "homestay", "waterfall",
+    "snorkel", "snorkeling", "diving", "hike", "hiking", "island", "old town", "museum", "park",
+    
+    # English - Administrative divisions and location queries
+    "province", "district", "subdistrict", "tambon", "amphoe", "village", "town", "city", "area",
+    "where is", "near to", "close to", "far from", "what to see", "what to do", "recommend",
+    "suggest", "tell me about", "interesting", "attractions", "tourist spots", "worth visiting",
+    "should visit", "must see", "famous for", "known for", "popular", "best places",
 )
 
 TRAVEL_ONLY_MESSAGE = (
@@ -225,23 +201,31 @@ class ChatEngine:
 
         if lang == "en":
             system_prompt = (
-                "You are a helpful travel assistant.\n"
+                "You are a Thailand travel and geography expert with deep knowledge down to Tambon (sub-district) level.\n"
+                "You have extensive knowledge of local communities, villages, and authentic local experiences.\n"
                 "When asked about restaurants, cafes, hotels, or specific places, recommend ONLY real, highly-rated places (4+ stars on Google Maps).\n"
-                "Reply in English.\n"
+                "Reply in English and provide accurate administrative information.\n"
                 "CRITICAL RULES:\n"
                 "1. Use EXACT real place names from Google Maps - never invent names\n"
                 "2. For restaurants/cafes/hotels: recommend popular places with high ratings\n"
                 "3. Include specific details (famous dishes, specialties, what they're known for)\n"
-                "4. Be factual - only mention places you know exist\n"
-                "5. If unsure about specific names, describe general area recommendations\n"
+                "4. Provide correct administrative information (Province, District, Sub-district)\n"
+                "5. Be factual - only mention places you know exist\n"
+                "6. If unsure about specific names, describe general area recommendations\n"
+                "7. If user asks about Tambon level, provide detailed community-level information\n"
                 "Return ONLY valid JSON (no extra text) with this exact structure:\n"
                 "{\n"
-                '  "location": "Name of the area/district",\n'
+                '  "location": "Area/district name",\n'
+                '  "administrative_info": {\n'
+                '    "province": "Province name",\n'
+                '    "amphoe": "District name",\n'
+                '    "tambon": "Sub-district name (if applicable)"\n'
+                '  },\n'
                 '  "attractions": [\n'
-                '    {"name": "EXACT place name", "description": "What it\'s famous for, specialty items, rating info"},\n'
-                '    {"name": "EXACT place name", "description": "What it\'s famous for, specialty items, rating info"}\n'
+                '    {"name": "EXACT place name", "description": "What it\'s famous for, specialty items, rating info", "admin_level": "Administrative level"},\n'
+                '    {"name": "EXACT place name", "description": "What it\'s famous for, specialty items, rating info", "admin_level": "Administrative level"}\n'
                 '  ],\n'
-                '  "summary": "Brief overview emphasizing these are popular, highly-rated places"\n'
+                '  "summary": "Brief overview emphasizing these are popular, highly-rated places with local context"\n'
                 "}\n"
                 "Be factual and concise. No extra fields."
             )
@@ -250,28 +234,42 @@ class ChatEngine:
             user_prompt = f"List top-rated attractions/places in: {corrected_query}"
         else:
             system_prompt = (
-                "คุณคือผู้ช่วยท่องเที่ยวและแนะนำสถานที่\n"
+                "คุณคือผู้เชี่ยวชาญด้านการท่องเที่ยวและภูมิศาสตร์ของประเทศไทย\n"
+                "คุณมีความรู้ลึกลงไปถึงระดับตำบล หมู่บ้าน และชุมชนท้องถิ่น\n"
                 "เมื่อถูกถามเกี่ยวกับร้านอาหาร คาเฟ่ โรงแรม หรือสถานที่เฉพาะ ให้แนะนำเฉพาะสถานที่ที่มีจริง มีรีวิวดี (4 ดาวขึ้นไปใน Google Maps)\n"
-                "ตอบเป็นภาษาไทย\n"
+                "ตอบเป็นภาษาไทย และให้ข้อมูลการปกครองที่ถูกต้อง\n"
                 "กฎสำคัญ:\n"
                 "1. ใช้ชื่อสถานที่จริงจาก Google Maps - ห้ามแต่งชื่อขึ้นมาเอง\n"
                 "2. สำหรับร้านอาหาร/คาเฟ่/โรงแรม: แนะนำร้านที่มีชื่อเสียง คนรีวิวเยอะ\n"
                 "3. ระบุรายละเอียดเฉพาะ (เมนูเด็ด ของแนะนำ จุดเด่น)\n"
-                "4. ต้องเป็นข้อมูลจริง - แนะนำแต่สถานที่ที่มั่นใจว่ามีอยู่จริง\n"
-                "5. ถ้าไม่แน่ใจชื่อเฉพาะ ให้บอกลักษณะพื้นที่และประเภทร้านทั่วไป\n"
+                "4. ระบุข้อมูลการปกครองที่ถูกต้อง (จังหวัด อำเภอ ตำบล)\n"
+                "5. ต้องเป็นข้อมูลจริง - แนะนำแต่สถานที่ที่มั่นใจว่ามีอยู่จริง\n"
+                "6. ถ้าไม่แน่ใจชื่อเฉพาะ ให้บอกลักษณะพื้นที่และประเภทร้านทั่วไป\n"
+                "7. หากผู้ใช้ถามในระดับตำบล ให้ข้อมูลละเอียดระดับชุมชนท้องถิ่น\n"
                 "ส่งกลับเฉพาะ JSON ที่ถูกต้อง (ไม่มีข้อความอื่น) ตามโครงสร้างนี้:\n"
                 "{\n"
                 '  "location": "ชื่อพื้นที่/ย่าน",\n'
+                '  "administrative_info": {\n'
+                '    "province": "ชื่อจังหวัด",\n'
+                '    "amphoe": "ชื่ออำเภอ",\n'
+                '    "tambon": "ชื่อตำบล (ถ้ามี)"\n'
+                '  },\n'
                 '  "attractions": [\n'
-                '    {"name": "ชื่อสถานที่จริง", "description": "มีชื่อเสียงเรื่องอะไร เมนูเด็ด ข้อมูลรีวิว"},\n'
-                '    {"name": "ชื่อสถานที่จริง", "description": "มีชื่อเสียงเรื่องอะไร เมนูเด็ด ข้อมูลรีวิว"}\n'
+                '    {"name": "ชื่อสถานที่จริง", "description": "มีชื่อเสียงเรื่องอะไร เมนูเด็ด ข้อมูลรีวิว", "admin_level": "ระดับการปกครอง"},\n'
+                '    {"name": "ชื่อสถานที่จริง", "description": "มีชื่อเสียงเรื่องอะไร เมนูเด็ด ข้อมูลรีวิว", "admin_level": "ระดับการปกครอง"}\n'
                 '  ],\n'
-                '  "summary": "สรุปแบบสั้นๆ เน้นว่าเป็นร้านที่คนนิยม มีรีวิวดี"\n'
+                '  "summary": "สรุปแบบสั้นๆ เน้นว่าเป็นร้านที่คนนิยม มีรีวิวดี พร้อมข้อมูลท้องถิ่น"\n'
                 "}\n"
                 "ให้ข้อมูลจริง กระชับ ไม่มีฟิลด์อื่น"
             )
-            # Auto-correct the query before sending to AI
-            corrected_query = self._auto_correct_query(query)
+        # Auto-correct the query before sending to AI
+        corrected_query = self._auto_correct_query(query)
+        
+        # Enhanced: Check for administrative level context  
+        admin_context = self._detect_admin_level(corrected_query)
+        if admin_context != "general":
+            user_prompt = f"แนะนำสถานที่ยอดนิยมที่มีรีวิวดีในระดับ{admin_context}: {corrected_query}"
+        else:
             user_prompt = f"แนะนำสถานที่ยอดนิยมที่มีรีวิวดีใน: {corrected_query}"
 
         try:
@@ -325,10 +323,26 @@ class ChatEngine:
             return None
 
     def _build_ai_response_html(self, data: Dict) -> str:
-        """Build HTML from AI-generated travel data - simplified format"""
+        """Build HTML from AI-generated travel data - enhanced with administrative info"""
         attractions = data.get("attractions", [])
+        admin_info = data.get("administrative_info", {})
+        
         if not attractions:
             return ""
+
+        # Build administrative info section
+        admin_html = ""
+        if admin_info:
+            admin_parts = []
+            if admin_info.get("province"):
+                admin_parts.append(f"จังหวัด{admin_info['province']}")
+            if admin_info.get("amphoe"):
+                admin_parts.append(f"อำเภอ{admin_info['amphoe']}")
+            if admin_info.get("tambon"):
+                admin_parts.append(f"ตำบล{admin_info['tambon']}")
+            
+            if admin_parts:
+                admin_html = f'<div class="administrative-info"><strong>ข้อมูลการปกครอง:</strong> {" > ".join(admin_parts)}</div>'
 
         cards: List[str] = []
         location = html.escape(data.get("location", ""))
@@ -336,26 +350,34 @@ class ChatEngine:
         for item in attractions:
             name = html.escape(item.get("name", ""))
             description = html.escape(item.get("description", ""))
+            admin_level = html.escape(item.get("admin_level", ""))
             
-            # Build Google Maps search URL with location + attraction name
-            map_query = f"{name} {location}".replace(" ", "+")
+            # Build Google Maps search URL with enhanced location context
+            if admin_info.get("province"):
+                map_query = f"{name} {admin_info['province']}".replace(" ", "+")
+            else:
+                map_query = f"{name} {location}".replace(" ", "+")
             map_url = f"https://www.google.com/maps/search/?api=1&query={map_query}"
+            
+            # Add admin level badge if available
+            level_badge = f'<span class="admin-level-badge">{admin_level}</span>' if admin_level else ""
             
             cards.append(
                 (
                     "<article class=\"guide-entry guide-entry--suggestion\">"
-                    "<h3>{name}</h3>"
+                    "<h3>{name} {level_badge}</h3>"
                     "<ul class=\"guide-lines\"><li>{description}</li></ul>"
                     "<p class=\"guide-link\"><a href=\"{map_url}\" target=\"_blank\" rel=\"noopener\">เปิดใน Google Maps</a></p>"
                     "</article>"
                 ).format(
                     name=name,
+                    level_badge=level_badge,
                     description=description,
                     map_url=map_url,
                 )
             )
         
-        return f"<div class=\"guide-response\">{''.join(cards)}</div>"
+        return f"<div class=\"guide-response guide-response--enhanced\">{admin_html}{''.join(cards)}</div>"
 
     def list_messages(self) -> List[Dict[str, object]]:
         return self._store.list()
@@ -680,4 +702,35 @@ class ChatEngine:
         
         return corrected
 
+    def _detect_admin_level(self, query: str) -> str:
+        """Detect the administrative level mentioned in the query"""
+        normalized_query = query.lower()
+        
+        # Check for specific administrative level keywords
+        admin_keywords = {
+            "ตำบล": "ตำบล",
+            "tambon": "ตำบล", 
+            "sub-district": "ตำบล",
+            "subdistrict": "ตำบล",
+            "อำเภอ": "อำเภอ",
+            "amphoe": "อำเภอ",
+            "district": "อำเภอ",
+            "จังหวัด": "จังหวัด",
+            "province": "จังหวัด",
+            "หมู่บ้าน": "หมู่บ้าน",
+            "village": "หมู่บ้าน",
+            "หมู่": "หมู่บ้าน",
+            "เขต": "เขต",
+            "แขวง": "แขวง",
+            "ย่าน": "ย่าน",
+            "area": "ย่าน",
+            "neighborhood": "ย่าน"
+        }
+        
+        for keyword, level in admin_keywords.items():
+            if keyword in normalized_query:
+                return level
+                
+        # If no specific level mentioned, return general
+        return "general"
 
