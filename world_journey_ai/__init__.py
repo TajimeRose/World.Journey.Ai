@@ -11,10 +11,8 @@ import os
 from pathlib import Path
 from typing import Optional
 
-import os
 from dotenv import load_dotenv
 from pymongo import MongoClient, ASCENDING, DESCENDING
-
 from flask import Flask
 from flask_cors import CORS
 
@@ -56,10 +54,9 @@ def create_app(config_name: Optional[str] = None) -> Flask:
     
     # Register blueprints
     _register_blueprints(app)
-    # โหลดค่าในไฟล์ .env (ถ้ามี) เพื่อให้ตัวแปรแวดล้อมพร้อมใช้
+    
+    # Load environment variables from .env file (if exists)
     load_dotenv(base_path / ".env")
-
-    CORS(app)
 
     app.logger.info("World Journey AI application created successfully")
     return app
@@ -78,7 +75,8 @@ def _configure_app(app: Flask, config_name: Optional[str] = None) -> None:
         "https://127.0.0.1:*",
     ]
     CORS(app, origins=allowed_origins)
-    # พยายามเชื่อม MongoDB ถ้ามีการตั้งค่าใน environment
+    
+    # Try to connect MongoDB if configured in environment
     try:
         mongo_uri = os.environ.get("MONGODB_URI")
         mongo_dbname = os.environ.get("MONGODB_DB")
@@ -86,16 +84,13 @@ def _configure_app(app: Flask, config_name: Optional[str] = None) -> None:
             client = MongoClient(mongo_uri)
             db = client[mongo_dbname]
             events = db["usage_events"]
-            # สร้าง index ถ้ายังไม่มี (idempotent)
+            # Create index if not exists (idempotent)
             events.create_index([("uid", ASCENDING), ("created_at", DESCENDING)])
             app.extensions["mongo_client"] = client
             app.extensions["mongo_events"] = events
     except Exception:
-        # ไม่ควรให้การเชื่อม Mongo ทำให้แอปไม่สามารถเริ่มได้ใน dev mode
+        # Don't let Mongo connection failure prevent app from starting in dev mode
         pass
-
-    app.register_blueprint(pages_bp)
-    app.register_blueprint(api_bp, url_prefix="/api")
 
     # Configure logging
     log_level = getattr(logging, os.getenv("LOG_LEVEL", "INFO").upper(), logging.INFO)
