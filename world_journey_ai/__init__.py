@@ -20,6 +20,9 @@ from flask_cors import CORS
 
 from .routes.api import api_bp
 from .routes.pages import pages_bp
+from .services.chatbot import ChatEngine
+from .services.destinations import DESTINATIONS
+from .services.messages import MessageStore
 
 
 def create_app(config_name: Optional[str] = None) -> Flask:
@@ -104,15 +107,10 @@ def _configure_app(app: Flask, config_name: Optional[str] = None) -> None:
         )
         app.logger.setLevel(log_level)
     
-    app.logger.info(f"Flask app configured with environment: {config_name or 'default'}")
-
-
 def _initialize_services(app: Flask) -> None:
     """Initialize application services with proper error handling."""
     try:
-        # Lazy import to avoid circular dependencies
-        from .services.chatbot import ChatEngine
-        from .services.destinations import DESTINATIONS
+        # Initialize services
         from .services.messages import MessageStore
         
         # Initialize services
