@@ -1132,3 +1132,57 @@ a:focus {
     opacity: 0.5;
     cursor: not-allowed;
 }
+
+/* Enhanced AI Response Styles for Tambon-level information */
+.guide-response--enhanced {
+    border-left: 3px solid #10b981;
+}
+
+.administrative-info {
+    background: rgba(16, 185, 129, 0.1);
+    border: 1px solid rgba(16, 185, 129, 0.3);
+    padding: 0.75rem 1rem;
+    margin-bottom: 1rem;
+    border-radius: 8px;
+    font-size: 0.9rem;
+    color: #34d399;
+}
+
+.administrative-info strong {
+    color: #10b981;
+    font-weight: 600;
+}
+
+.admin-level-badge {
+    display: inline-block;
+    background: rgba(59, 130, 246, 0.2);
+    color: #60a5fa;
+    font-size: 0.75rem;
+    padding: 0.25rem 0.5rem;
+    border-radius: 4px;
+    margin-left: 0.5rem;
+    font-weight: 500;
+    border: 1px solid rgba(59, 130, 246, 0.3);
+}
+
+.guide-entry--enhanced {
+    border-left: 3px solid rgba(16, 185, 129, 0.4);
+}
+
+.guide-entry--enhanced:hover {
+    border-left-color: #10b981;
+    transform: translateX(2px);
+}
+
+/* Responsive adjustments for enhanced information */
+@media (max-width: 480px) {
+    .administrative-info {
+        padding: 0.5rem 0.75rem;
+        font-size: 0.85rem;
+    }
+
+    .admin-level-badge {
+        font-size: 0.7rem;
+        padding: 0.2rem 0.4rem;
+    }
+}

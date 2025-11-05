@@ -170,6 +170,18 @@ def chat() -> Union[str, Tuple[str, int]]:
     return _render_page_safely("chat.html")
 
 
+@pages_bp.route("/guide")
+def guide() -> Union[str, Tuple[str, int]]:
+    """Render the travel guide page."""
+    return _render_page_safely("guide.html")
+
+
+@pages_bp.route("/feedback-test")
+def feedback_test() -> Union[str, Tuple[str, int]]:
+    """Render the feedback testing page."""
+    return _render_page_safely("feedback_test.html")
+
+
 @pages_bp.route("/firebase_config.js")
 def firebase_config() -> Response:
     """Generate Firebase configuration JavaScript file.

@@ -119,6 +119,7 @@
     const bubble = document.createElement('div');
     bubble.className = 'message-bubble';
     bubble.dataset.role = message.role;
+    bubble.dataset.messageId = message.id || message.createdAt; // Use ID or fallback to timestamp
     bubble.classList.add(
       message.role === 'assistant'
         ? 'message-bubble--assistant'
@@ -143,6 +144,7 @@
       author.textContent = analyseMessageRole(message.role);
     }
     meta.appendChild(author);
+
     bubble.appendChild(meta);
 
     const body = document.createElement('div');
@@ -371,7 +373,7 @@
       const response = await fetch('/api/messages', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ role: 'user', text }),
+        body: JSON.stringify({ role: 'user', text, mode: 'chat' }),
         signal: state.abortController.signal,
       });
       if (!response.ok) {

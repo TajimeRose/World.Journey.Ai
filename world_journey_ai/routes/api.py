@@ -21,19 +21,29 @@ MAX_MESSAGE_LENGTH = 1000
 DEFAULT_ERROR_MESSAGE = "เกิดข้อผิดพลาด กรุณาลองใหม่อีกครั้ง"
 
 
-def _get_chat_engine():
+def _get_chat_engine(ai_mode: str = "chat"):
     """Get chat engine from Flask app extensions with error handling.
     
+    Args:
+        ai_mode: The AI mode - 'chat' for general conversation or 'guide' for trip planning
+    
     Returns:
-        ChatEngine: The initialized chat engine
+        BaseAIEngine: The initialized AI engine (ChatEngine or GuideEngine)
         
     Raises:
         RuntimeError: If chat engine is not configured
     """
-    engine = current_app.extensions.get("chat_engine")
+    if ai_mode == "guide":
+        engine = current_app.extensions.get("guide_engine")
+        if engine is None:
+            # Fallback to chat engine if guide engine not configured
+            engine = current_app.extensions.get("chat_engine")
+    else:
+        engine = current_app.extensions.get("chat_engine")
+    
     if engine is None:
-        current_app.logger.error("Chat engine not found in app extensions")
-        raise RuntimeError("Chat engine not configured")
+        current_app.logger.error("AI engine not found in app extensions")
+        raise RuntimeError("AI engine not configured")
     return engine
 
 
@@ -176,17 +186,24 @@ def create_message():
     """Create a new message and generate AI response.
     
     Request Body:
-        JSON object with 'text' field containing the message
+        JSON object with:
+        - 'text' field containing the message
+        - 'mode' field (optional) specifying AI mode: 'chat' or 'guide'
         
     Returns:
         JSON response with user message and AI assistant response
     """
     try:
-        engine = _get_chat_engine()
-        
         # Parse and validate request
         payload = request.get_json(silent=True) or {}
         text = str(payload.get("text") or "").strip()
+        ai_mode = payload.get("mode", "chat")  # default to chat mode
+        
+        # Validate AI mode
+        if ai_mode not in ["chat", "guide"]:
+            ai_mode = "chat"
+        
+        engine = _get_chat_engine(ai_mode)
         
         # Validate message text
         error_msg = _validate_message_text(text)
