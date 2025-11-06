@@ -11,6 +11,9 @@ from pymongo import MongoClient, ASCENDING, DESCENDING
 
 from flask import Blueprint, current_app, jsonify, request
 
+# Import SimpleChatbot for easier development
+from ..services.simple_chatbot import SimpleChatbot
+
 # Create API blueprint
 load_dotenv()
 
@@ -227,104 +230,6 @@ def create_message():
         return jsonify(*_create_error_response("เกิดข้อผิดพลาดในการสร้างข้อความ กรุณาลองใหม่อีกครั้ง"))
 
 
-@api_bp.route("/feedback", methods=["POST"])
-def submit_feedback():
-    """Submit feedback for an AI response.
-    
-    Request Body:
-        JSON object with:
-        - 'messageId' field containing the message timestamp
-        - 'feedback' field containing 'like' or 'dislike'
-        - 'comment' field (optional) containing additional feedback text
-        
-    Returns:
-        JSON response with success status
-    """
-    try:
-        # Parse and validate request
-        payload = request.get_json(silent=True) or {}
-        message_id = str(payload.get("messageId") or "").strip()
-        feedback = str(payload.get("feedback") or "").strip().lower()
-        comment = str(payload.get("comment") or "").strip()
-        
-        # Validate feedback type
-        if feedback not in ["like", "dislike"]:
-            return jsonify(*_create_error_response("ประเภทการให้ความเห็นไม่ถูกต้อง", 400))
-        
-        if not message_id:
-            return jsonify(*_create_error_response("ไม่พบ ID ของข้อความ", 400))
-        
-        # Try to store feedback in MongoDB
-        try:
-            events = _get_events_collection()
-            feedback_doc = {
-                "type": "feedback",
-                "messageId": message_id,
-                "feedback": feedback,
-                "comment": comment,
-                "uid": payload.get("uid") or request.headers.get("X-User-Id"),
-                "created_at": datetime.now(timezone.utc),
-            }
-            events.insert_one(feedback_doc)
-            
-        except RuntimeError:
-            # MongoDB not available, but don't fail the request
-            current_app.logger.warning("MongoDB not available for feedback storage")
-        except Exception as e:
-            # Log error but don't fail the request
-            current_app.logger.error(f"Failed to store feedback in MongoDB: {e}")
-        
-        return jsonify({
-            "success": True,
-            "message": "ขอบคุณสำหรับความเห็น!" if feedback == "like" else "ขอบคุณสำหรับความเห็น เราจะนำไปปรับปรุง!"
-        })
-        
-    except Exception as e:
-        current_app.logger.error(f"Unexpected error in submit_feedback: {e}")
-        return jsonify(*_create_error_response("เกิดข้อผิดพลาดในการส่งความเห็น"))
-
-
-@api_bp.route("/feedback/stats", methods=["GET"])
-def get_feedback_stats():
-    """Get feedback statistics.
-    
-    Returns:
-        JSON response with like/dislike counts
-    """
-    try:
-        events = _get_events_collection()
-        
-        # Count likes and dislikes
-        likes = events.count_documents({"type": "feedback", "feedback": "like"})
-        dislikes = events.count_documents({"type": "feedback", "feedback": "dislike"})
-        total = likes + dislikes
-        
-        return jsonify({
-            "success": True,
-            "stats": {
-                "likes": likes,
-                "dislikes": dislikes,
-                "total": total,
-                "likePercentage": round((likes / total * 100) if total > 0 else 0, 1)
-            }
-        })
-        
-    except RuntimeError:
-        # MongoDB not available
-        return jsonify({
-            "success": True,
-            "stats": {
-                "likes": 0,
-                "dislikes": 0,
-                "total": 0,
-                "likePercentage": 0
-            }
-        })
-    except Exception as e:
-        current_app.logger.error(f"Error getting feedback stats: {e}")
-        return jsonify(*_create_error_response("เกิดข้อผิดพลาดในการโหลดสถิติ"))
-
-
 @api_bp.errorhandler(404)
 def api_not_found(error):
     """Handle 404 errors for API endpoints."""
@@ -422,4 +327,69 @@ def get_history():
         return jsonify({"ok": False, "error": f"mongo error: {exc}"}), 500
 
     return jsonify({"ok": True, "count": len(docs), "docs": docs})
+
+
+# =============================================================================
+# SIMPLE CHATBOT ENDPOINT - Easy to modify for non-experts
+# =============================================================================
+
+@api_bp.route("/simple-chat", methods=["POST"])
+def simple_chat():
+    """
+    Simple chat endpoint using SimpleChatbot - easier for non-experts to modify.
+    
+    This endpoint is designed to be simple and accessible for developers who
+    are not advanced Python programmers. All the chatbot logic is contained
+    in the SimpleChatbot class which has clear, easy-to-edit methods.
+    
+    Request Body:
+        JSON object with:
+        - 'message' field containing the user's message
+        
+    Returns:
+        JSON response with bot reply
+    """
+    try:
+        # Get the user's message
+        data = request.get_json(silent=True) or {}
+        user_message = str(data.get("message", "")).strip()
+        
+        # Basic validation
+        if not user_message:
+            return jsonify({
+                "error": "กรุณาใส่ข้อความ",
+                "success": False
+            }), 400
+            
+        if len(user_message) > 1000:  # Simple limit
+            return jsonify({
+                "error": "ข้อความยาวเกินไป กรุณาใส่ข้อความสั้นกว่านี้",
+                "success": False
+            }), 400
+        
+        # Create simple chatbot with a temporary message store
+        # For production, you might want to use a persistent store
+        from ..services.messages import MessageStore
+        temp_message_store = MessageStore()  # Simple temporary storage
+        chatbot = SimpleChatbot(temp_message_store)
+        
+        # Get bot response (all the logic is in SimpleChatbot class)
+        bot_response = chatbot.chat(user_message)
+        
+        # Return response
+        return jsonify({
+            "message": user_message,
+            "response": bot_response,
+            "success": True
+        })
+        
+    except Exception as e:
+        # Log the error for debugging
+        current_app.logger.error(f"Simple chat error: {e}")
+        
+        # Return a simple error message
+        return jsonify({
+            "error": "เกิดข้อผิดพลาด กรุณาลองใหม่อีกครั้ง",
+            "success": False
+        }), 500
 

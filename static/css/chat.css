@@ -527,66 +527,6 @@ a:focus {
     margin: 0;
 }
 
-/* Feedback buttons */
-.message-feedback {
-    display: flex;
-    align-items: center;
-    gap: 0.4rem;
-}
-
-.feedback-btn {
-    background: none;
-    border: none;
-    font-size: 1rem;
-    cursor: pointer;
-    padding: 0.25rem;
-    border-radius: 6px;
-    transition: all 0.2s ease;
-    opacity: 0.6;
-    display: flex;
-    align-items: center;
-    justify-content: center;
-    min-width: 28px;
-    height: 28px;
-}
-
-.feedback-btn:hover {
-    opacity: 1;
-    background: rgba(30, 136, 229, 0.1);
-    transform: scale(1.1);
-}
-
-.feedback-btn:focus {
-    outline: 2px solid #1e88e5;
-    outline-offset: 2px;
-}
-
-.feedback-btn:disabled {
-    cursor: not-allowed;
-    opacity: 0.4;
-}
-
-.feedback-btn--like:hover {
-    background: rgba(76, 175, 80, 0.15);
-}
-
-.feedback-btn--dislike:hover {
-    background: rgba(244, 67, 54, 0.15);
-}
-
-.feedback-btn--submitted {
-    opacity: 1;
-    background: rgba(30, 136, 229, 0.15);
-}
-
-.feedback-btn--submitted.feedback-btn--like {
-    background: rgba(76, 175, 80, 0.2);
-}
-
-.feedback-btn--submitted.feedback-btn--dislike {
-    background: rgba(244, 67, 54, 0.2);
-}
-
 .guide-response {
     display: grid;
     gap: 1.2rem;
@@ -965,17 +905,6 @@ a:focus {
     .message-bubble {
         padding: 0.7rem 0.8rem;
         border-radius: 16px;
-    }
-
-    .feedback-btn {
-        font-size: 0.9rem;
-        min-width: 24px;
-        height: 24px;
-        padding: 0.2rem;
-    }
-
-    .message-feedback {
-        gap: 0.3rem;
     }
 
     .composer-actions {
