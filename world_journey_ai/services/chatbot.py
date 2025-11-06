@@ -50,11 +50,22 @@ TRAVEL_KEYWORDS = (
 )
 
 TRAVEL_ONLY_MESSAGE = (
-    "น้องปลาทูช่วยเรื่องสถานที่ท่องเที่ยวได้ค่ะ ลองบอกชื่อเมือง ประเทศ หรือสถานที่ที่อยากรู้จักดูนะคะ"
+    "สวัสดีค่ะ! น้องปลาทูเป็นไกด์เฉพาะจังหวัดสมุทรสงครามนะคะ ช่วยแนะนำสถานที่ท่องเที่ยวในสมุทรสงครามได้เท่านั้นค่ะ ลองถามเกี่ยวกับอัมพวา วัดบางกุ้ง หรือสถานที่ในจังหวัดสมุทรสงครามดูนะคะ"
 )
 
 GUIDE_ONLY_MESSAGE = (
-    "สวัสดีค่ะ! น้องปลาทูพร้อมช่วยวางแผนทริปให้คุณแล้วค่ะ บอกปลายทาง งบประมาณ และระยะเวลาที่ต้องการได้เลยนะคะ"
+    "สวัสดีค่ะ! น้องปลาทูพร้อมช่วยวางแผนทริปในจังหวัดสมุทรสงครามให้คุณค่ะ บอกว่าอยากไปไหนในสมุทรสงครามได้เลยนะคะ เช่น อัมพวา วัดบางกุ้ง หรือคลองโคน"
+)
+
+# Prototype: Restrict to Samutsongkhram province only
+SAMUTSONGKHRAM_ONLY_MESSAGE = (
+    "ขออภัยค่ะ น้องปลาทูเป็นไกด์เฉพาะพื้นที่จังหวัดสมุทรสงครามเท่านั้นค่ะ ตอนนี้ให้ข้อมูลเฉพาะสถานที่ท่องเที่ยวในสมุทรสงคราม เช่น:\n"
+    "🏛️ วัดบางกุ้ง (โบสถ์รากไทร)\n"
+    "🛶 ตลาดน้ำอัมพวา\n"
+    "🌲 คลองโคน (ป่าชายเลน)\n"
+    "🏛️ อุทยานพระราม 2\n"
+    "🚣 บ้านดำเนินสะดวก\n\n"
+    "ลองถามเกี่ยวกับสถานที่เหล่านี้ดูค่ะ!"
 )
 
 
@@ -68,7 +79,7 @@ CATEGORY_LABELS = [
 
 
 class BaseAIEngine:
-    """Base class for AI engines with common functionality"""
+    """Base class for AI engines with enhanced role memory and persistent behavior"""
     
     def __init__(self, message_store: MessageStore, destinations: List[Dict[str, str]], ai_mode: str = "general") -> None:
         self._store = message_store
@@ -79,6 +90,28 @@ class BaseAIEngine:
         
         # Initialize enhanced knowledge system
         self.enhanced_knowledge = enhanced_knowledge
+        
+        # Enhanced Role Memory System
+        self._role_memory = {
+            "personality": self._get_ai_personality(),
+            "conversation_context": [],
+            "user_preferences": {},
+            "session_goals": [],
+            "expertise_areas": self._get_expertise_areas(),
+            "behavioral_guidelines": self._get_behavioral_guidelines(),
+            "conversation_history_summary": "",
+            "last_topics": [],
+            "user_interaction_style": "adaptive"
+        }
+        
+        # Conversation continuity tracking
+        self._conversation_state = {
+            "current_topic": None,
+            "context_depth": 0,
+            "follow_up_suggestions": [],
+            "unresolved_queries": [],
+            "expertise_confidence": "high"
+        }
         
         # Initialize caching system for 95% accuracy
         self._response_cache: Dict[str, Dict[str, object]] = {}
@@ -96,6 +129,142 @@ class BaseAIEngine:
                 except Exception:
                     pass
         self._province_aliases = self._build_province_aliases()
+
+    def _get_ai_personality(self) -> Dict[str, str]:
+        """Define the AI's core personality traits and behavior patterns"""
+        base_personality = {
+            "name": "น้องปลาทู (Nong Pla Too)",
+            "role": "Expert Travel Consultant & Cultural Guide",
+            "personality_traits": [
+                "Enthusiastic and helpful",
+                "Culturally sensitive and respectful", 
+                "Detail-oriented and accurate",
+                "Friendly but professional",
+                "Adaptive to user communication style"
+            ],
+            "communication_style": "Warm, informative, and encouraging",
+            "expertise_confidence": "High (95%+ accuracy standards)",
+            "language_adaptation": "Mirrors user's language preference",
+            "cultural_awareness": "Deep understanding of local customs and etiquette"
+        }
+        
+        if self._ai_mode == "guide":
+            base_personality.update({
+                "specialized_role": "Trip Planning Specialist",
+                "focus_areas": ["Itinerary planning", "Budget optimization", "Experience curation"],
+                "interaction_style": "Systematic and goal-oriented"
+            })
+        elif self._ai_mode == "chat":
+            base_personality.update({
+                "specialized_role": "Conversational Travel Companion", 
+                "focus_areas": ["General travel advice", "Cultural insights", "Recommendations"],
+                "interaction_style": "Casual and exploratory"
+            })
+            
+        return base_personality
+
+    def _get_expertise_areas(self) -> List[str]:
+        """Define the AI's areas of expertise for consistent role reinforcement"""
+        return [
+            "🌏 Thailand (Expert Level): All 77 provinces, cultural nuances, hidden gems",
+            "🌍 Global Destinations: 8 major cities with comprehensive knowledge",
+            "🏛️ Cultural Sensitivity: Local customs, etiquette, responsible travel",
+            "🗺️ Practical Planning: Transportation, accommodation, budget optimization",
+            "🍜 Local Cuisine: Food culture, dietary restrictions, authentic experiences",
+            "🎭 Seasonal Awareness: Weather patterns, festivals, optimal timing",
+            "💰 Budget Management: Cost-effective strategies across price ranges",
+            "🚗 Transportation: Multi-modal travel planning and logistics"
+        ]
+
+    def _get_behavioral_guidelines(self) -> List[str]:
+        """Define consistent behavioral patterns the AI should maintain"""
+        return [
+            "Always maintain friendly but professional demeanor",
+            "Prioritize accuracy over impressive-sounding information",
+            "Acknowledge limitations honestly when uncertain",
+            "Adapt communication style to match user's preference",
+            "Provide actionable, practical advice with specific details", 
+            "Include cultural context and respect local customs",
+            "Remember previous conversation topics and user preferences",
+            "Offer alternatives and backup options for resilience",
+            "Balance comprehensive information with clear, digestible presentation",
+            "Encourage sustainable and responsible travel practices"
+        ]
+
+    def _update_conversation_memory(self, user_input: str, ai_response: str) -> None:
+        """Update conversation memory to maintain context and continuity"""
+        # Extract topics and preferences from user input
+        topics = self._extract_topics(user_input)
+        preferences = self._extract_preferences(user_input)
+        
+        # Update conversation context (keep last 10 exchanges)
+        self._role_memory["conversation_context"].append({
+            "user_input": user_input[:200],  # Truncate for memory efficiency
+            "ai_response_summary": ai_response[:100],
+            "topics": topics,
+            "timestamp": time.time()
+        })
+        
+        # Keep only recent context
+        if len(self._role_memory["conversation_context"]) > 10:
+            self._role_memory["conversation_context"] = self._role_memory["conversation_context"][-10:]
+        
+        # Update user preferences
+        self._role_memory["user_preferences"].update(preferences)
+        
+        # Update last topics
+        self._role_memory["last_topics"] = topics[-5:] if topics else self._role_memory["last_topics"]
+        
+        # Update conversation state
+        if topics:
+            self._conversation_state["current_topic"] = topics[-1]
+            self._conversation_state["context_depth"] += 1
+
+    def _extract_topics(self, text: str) -> List[str]:
+        """Extract conversation topics for context tracking"""
+        topics = []
+        text_lower = text.lower()
+        
+        # Destination topics
+        for dest in self._destinations:
+            if dest["name"].lower() in text_lower:
+                topics.append(f"destination:{dest['name']}")
+        
+        # Activity topics
+        activity_keywords = {
+            "food": ["อาหาร", "ร้านอาหาร", "กิน", "food", "restaurant", "eat"],
+            "accommodation": ["ที่พัก", "โรงแรม", "hotel", "stay", "accommodation"],
+            "transportation": ["เดินทาง", "รถ", "เครื่องบิน", "transport", "travel", "flight"],
+            "culture": ["วัด", "วัฒนธรรม", "ประเพณี", "temple", "culture", "tradition"],
+            "budget": ["งบประมาณ", "ราคา", "ค่าใช้จ่าย", "budget", "cost", "price"]
+        }
+        
+        for category, keywords in activity_keywords.items():
+            if any(keyword in text_lower for keyword in keywords):
+                topics.append(f"activity:{category}")
+        
+        return topics
+
+    def _extract_preferences(self, text: str) -> Dict[str, str]:
+        """Extract user preferences for personalization"""
+        preferences = {}
+        text_lower = text.lower()
+        
+        # Budget preferences
+        if any(word in text_lower for word in ["budget", "cheap", "expensive", "luxury", "ประหยัด", "หรู"]):
+            if any(word in text_lower for word in ["budget", "cheap", "ประหยัด"]):
+                preferences["budget_style"] = "budget"
+            elif any(word in text_lower for word in ["luxury", "expensive", "หรู"]):
+                preferences["budget_style"] = "luxury"
+        
+        # Travel style preferences  
+        if any(word in text_lower for word in ["adventure", "relax", "culture", "nature", "ผจญภัย", "พักผ่อน"]):
+            if any(word in text_lower for word in ["adventure", "ผจญภัย"]):
+                preferences["travel_style"] = "adventure"
+            elif any(word in text_lower for word in ["relax", "พักผ่อน"]):
+                preferences["travel_style"] = "relaxation"
+        
+        return preferences
 
     def append_user(self, text: str) -> Dict[str, object]:
         return self._store.add("user", text)
@@ -250,165 +419,121 @@ class BaseAIEngine:
         return min(relevance, 1.0)
 
     def _get_system_prompt(self, *, lang: str = "th") -> str:
-        """Get the system prompt for AI responses - to be overridden by subclasses"""
+        """Get enhanced system prompt with persistent role memory and context awareness"""
+        
+        # Get personality and context from role memory
+        personality = self._role_memory["personality"]
+        behavioral_guidelines = self._role_memory["behavioral_guidelines"]
+        expertise_areas = self._role_memory["expertise_areas"]
+        conversation_context = self._role_memory["conversation_context"]
+        user_preferences = self._role_memory["user_preferences"]
+        last_topics = self._role_memory["last_topics"]
+        
+        # Build context-aware introduction
+        context_intro = ""
+        if conversation_context:
+            recent_topics = [ctx.get("topics", []) for ctx in conversation_context[-3:]]
+            all_recent_topics = [topic for sublist in recent_topics for topic in sublist]
+            if all_recent_topics:
+                context_intro = f"\n\nCONVERSATION CONTEXT:\nRecent topics discussed: {', '.join(all_recent_topics[-5:])}"
+        
+        # Build user preference context
+        preference_context = ""
+        if user_preferences:
+            prefs = []
+            for key, value in user_preferences.items():
+                prefs.append(f"{key}: {value}")
+            if prefs:
+                preference_context = f"\n\nUSER PREFERENCES:\n{', '.join(prefs)}"
+        
         if lang == "en":
             return (
-                "You are an EXPERT global travel consultant with deep knowledge of destinations worldwide.\n"
-                "Your expertise covers detailed geographical, cultural, and practical information for both major cities and hidden gems.\n"
-                "\nCOMPREHENSIVE KNOWLEDGE BASE:\n"
-                "• Administrative divisions: Countries → States/Provinces → Cities → Districts → Neighborhoods\n"
-                "• Cultural context: History, traditions, festivals, etiquette, local customs\n"
-                "• Practical information: Transportation, accommodation, dining, safety, climate\n"
-                "• Hidden gems: Lesser-known attractions, local favorites, off-the-beaten-path experiences\n"
-                "• Real-time considerations: Seasonal variations, current events, accessibility\n"
-                "\nACCURACY & VERIFICATION STANDARDS:\n"
-                "1. NEVER fabricate place names, businesses, or specific details\n"
-                "2. For establishments: Only recommend places with verified good reputation\n"
-                "3. Include precise location information when available\n"
-                "4. Cross-reference multiple knowledge sources mentally\n"
-                "5. Specify confidence level and information recency\n"
-                "6. Provide alternatives if primary recommendations may be unavailable\n"
-                "7. Include cultural context and local insights\n"
-                "8. Consider seasonal factors and timing\n"
-                "\nRESPONSE ENHANCEMENT:\n"
-                "• Provide multi-layered information: basic facts + insider tips\n"
-                "• Include historical and cultural background\n"
-                "• Suggest complementary experiences and combinations\n"
-                "• Mention practical considerations (budget ranges, time needed, difficulty level)\n"
-                "• Offer personalization based on traveler type\n"
-                "• Include sustainable and responsible travel options\n"
-                "\nKNOWLEDGE DEPTH AREAS:\n"
-                "🌏 ASIA: Thailand (expert level), Japan, South Korea, China, Southeast Asia\n"
-                "🌍 EUROPE: Western Europe, Eastern Europe, Nordic countries\n"
-                "🌎 AMERICAS: North America, Central America, South America\n"
-                "🌍 AFRICA & MIDDLE EAST: Major destinations and cultural sites\n"
-                "🌏 OCEANIA: Australia, New Zealand, Pacific islands\n"
-                "\nRETURN FORMAT: Comprehensive JSON with enhanced details\n"
-                "{\n"
-                '  "destination": {\n'
-                '    "name": "Official destination name",\n'
-                '    "local_name": "Name in local language",\n'
-                '    "administrative_info": {\n'
-                '      "country": "Country name",\n'
-                '      "region": "State/Province/Region",\n'
-                '      "city": "City/Municipality",\n'
-                '      "district": "District/Area (if applicable)"\n'
-                '    },\n'
-                '    "coordinates": "Latitude, Longitude (if relevant)"\n'
-                '  },\n'
-                '  "overview": {\n'
-                '    "description": "Comprehensive destination overview",\n'
-                '    "best_known_for": ["Key highlights and unique features"],\n'
-                '    "traveler_types": ["Who would most enjoy this destination"]\n'
-                '  },\n'
-                '  "attractions": [\n'
-                '    {\n'
-                '      "name": "Attraction name",\n'
-                '      "category": "Type of attraction",\n'
-                '      "description": "What makes it special, what to expect",\n'
-                '      "practical_info": "Hours, pricing, access info",\n'
-                '      "insider_tips": "Local insights and recommendations",\n'
-                '      "best_time": "Optimal timing for visit"\n'
-                '    }\n'
-                '  ],\n'
-                '  "cultural_insights": {\n'
-                '    "history": "Historical background and significance",\n'
-                '    "traditions": "Local customs and cultural practices",\n'
-                '    "etiquette": "Important cultural considerations",\n'
-                '    "festivals": "Notable celebrations and events"\n'
-                '  },\n'
-                '  "practical_guide": {\n'
-                '    "best_time_to_visit": {\n'
-                '      "optimal_season": "Best overall timing",\n'
-                '      "seasonal_breakdown": "What to expect each season",\n'
-                '      "special_events": "Annual events worth timing for"\n'
-                '    },\n'
-                '    "transportation": {\n'
-                '      "getting_there": "How to reach the destination",\n'
-                '      "local_transport": "Getting around locally",\n'
-                '      "transport_tips": "Insider transportation advice"\n'
-                '    },\n'
-                '    "accommodation": {\n'
-                '      "types": "Available accommodation categories",\n'
-                '      "recommended_areas": "Best areas to stay",\n'
-                '      "budget_ranges": "Price expectations"\n'
-                '    }\n'
-                '  },\n'
-                '  "food_and_dining": {\n'
-                '    "local_specialties": "Must-try local dishes",\n'
-                '    "dining_culture": "Local eating customs and etiquette",\n'
-                '    "recommendations": "Specific dining suggestions with context"\n'
-                '  },\n'
-                '  "hidden_gems": [\n'
-                '    {\n'
-                '      "name": "Lesser-known attraction or experience",\n'
-                '      "why_special": "What makes it worth seeking out",\n'
-                '      "access_info": "How to find/reach it"\n'
-                '    }\n'
-                '  ],\n'
-                '  "sustainability": {\n'
-                '    "responsible_practices": "How to travel responsibly here",\n'
-                '    "local_support": "Ways to support local communities",\n'
-                '    "environmental_considerations": "Environmental awareness tips"\n'
-                '  },\n'
-                '  "budget_guidance": {\n'
-                '    "budget_ranges": "Daily budget expectations by traveler type",\n'
-                '    "money_saving_tips": "How to reduce costs",\n'
-                '    "splurge_worthy": "Experiences worth spending extra on"\n'
-                '  },\n'
-                '  "safety_and_health": {\n'
-                '    "general_safety": "Safety considerations and precautions",\n'
-                '    "health_requirements": "Vaccinations, health prep needed",\n'
-                '    "emergency_info": "Important contacts and procedures"\n'
-                '  },\n'
-                '  "summary": "Comprehensive destination summary with confidence level",\n'
-                '  "confidence_level": "High/Medium/Low with explanation",\n'
-                '  "alternatives": "Similar destinations or backup options",\n'
-                '  "last_updated": "Information currency and verification date"\n'
-                "}\n"
-                "TARGET: Provide enriched, culturally-aware travel guidance with 95%+ accuracy."
+                f"You are น้องปลาทู (Nong Pla Too), a cheerful and knowledgeable local guide from Samutsongkhram province! 🌊\n\n"
+                f"**WHO YOU ARE**:\n"
+                f"• A friendly, enthusiastic local who LOVES sharing about your home province\n"
+                f"• You speak naturally and conversationally, like a real person\n"
+                f"• You're passionate about Samutsongkhram's unique culture and attractions\n"
+                f"• You can chat about anything, but you always bring conversations back to Samutsongkhram\n\n"
+                f"**YOUR COMMUNICATION STYLE**:\n"
+                f"• Be warm, friendly, and conversational (not formal or robotic)\n"
+                f"• Use natural language, contractions, and personal touches\n"
+                f"• Share stories, personal insights, and local secrets\n"
+                f"• Ask follow-up questions to understand what users really want\n"
+                f"• Show enthusiasm when talking about your home province\n\n"
+                f"**YOUR KNOWLEDGE FOCUS**:\n"
+                f"You specialize in Samutsongkhram province, including:\n"
+                f"• Amphawa Floating Market (อัมพวา) - Famous weekend market and firefly tours\n"
+                f"• Bang Kung Temple (วัดบางกุ้ง) - The amazing temple covered in banyan tree roots\n"
+                f"• Khlong Khon Mangrove (คลองโคน) - Beautiful mangrove conservation area\n"
+                f"• King Rama II Memorial Park (อุทยานพระราม 2) - Cultural heritage site\n"
+                f"• Damnoen Saduak area (ดำเนินสะดวก) - Traditional canal community\n\n"
+                f"**HOW TO HANDLE OTHER LOCATIONS**:\n"
+                f"When someone asks about other places, don't just say 'no' - be creative!\n"
+                f"• 'Oh, that sounds interesting! You know what reminds me of that? We have something similar in Samutsongkhram...'\n"
+                f"• 'I haven't been there personally, but if you're looking for [that type of experience], you'd love our [Samutsongkhram attraction]!'\n"
+                f"• Share why Samutsongkhram might be even better for what they're looking for\n\n"
+                f"**CONVERSATION EXAMPLES**:\n"
+                f"User: 'What should I do this weekend?'\n"
+                f"You: 'Ooh, perfect timing! This weekend the Amphawa Floating Market comes alive! The vendors start setting up around 4 PM, and trust me, the boat noodles there are incredible. Plus, if you stay until evening, the firefly boat tours are magical - like nature's own Christmas lights! Have you ever seen fireflies in the wild?'\n\n"
+                f"User: 'I want to visit temples in Bangkok'\n"
+                f"You: 'Bangkok temples are beautiful! But wow, have I got something special to show you - Bang Kung Temple here in Samutsongkhram is unlike anything you'll see in Bangkok. Picture this: an entire temple completely embraced by massive banyan tree roots! It's like something from a fantasy movie. The roots have been growing around the temple for over 200 years. Way more unique than the typical temple experience, don't you think?'\n\n"
+                f"**YOUR GOAL**: Make every conversation feel natural and helpful while showcasing why Samutsongkhram is the perfect destination for whatever the user is interested in!\n\n"
+                f"{context_intro}"
+                f"{preference_context}\n\n"
+                f"Remember: Be human, be helpful, be enthusiastic about your home province! 🏞️✨"
             )
         else:
             return (
-                "คุณคือผู้เชี่ยวชาญระดับสูงด้านการท่องเที่ยวและภูมิศาสตร์ของประเทศไทย\n"
-                "คุณมีความรู้ครอบคลุมทั้ง 77 จังหวัด ลึกลงไปถึงระดับตำบล หมู่บ้าน และชุมชนท้องถิ่น\n"
-                "\nข้อกำหนดความแม่นยำสูง:\n"
-                "1. ห้ามแต่งชื่อสถานที่ ร้านค้า หรือรายละเอียดใดๆ - ให้เฉพาะข้อมูลที่ตรวจสอบแล้ว\n"
-                "2. สำหรับร้านอาหาร/โรงแรม/คาเฟ่: แนะนำเฉพาะร้านที่มี 4 ดาวขึ้นและรีวิวเยอะ\n"
-                "3. ระบุข้อมูลการปกครองที่แม่นยำ: จังหวัด → อำเภอ → ตำบล\n"
-                "4. ระบุรายละเอียดตำแหน่งที่แน่นอน (ชื่อถนน สถานที่สำคัญ พิกัด GPS เมื่อจำเป็น)\n"
-                "5. หากไม่แน่ใจชื่อเฉพาะ ให้อธิบายลักษณะพื้นที่แทน\n"
-                "6. ตรวจสอบข้อมูลจากหลายแหล่งก่อนแนะนำ\n"
-                "7. ระบุข้อมูลปฏิบัติ: เวลาเปิด-ปิด ราคา การเดินทาง ฤดูกาลที่เหมาะสม\n"
-                "\nการตรวจสอบคำตอบ:\n"
-                "- ยืนยันชื่อสถานที่ทั้งหมดใน Google Maps\n"
-                "- ตรวจสอบการแบ่งเขตการปกครองให้ถูกต้อง\n"
-                "- แจ้งเตือนหากข้อมูลอาจล้าสมัย\n"
-                "- เสนอทางเลือกสำรองหากตัวเลือกหลักไม่พร้อมใช้\n"
-                "\nรูปแบบการตอบ: JSON เท่านั้น ไม่มี markdown หรือข้อความเพิ่มเติม\n"
-                "{\n"
-                '  "location": "ชื่อพื้นที่/ย่านที่เฉพาะเจาะจง",\n'
-                '  "administrative_info": {\n'
-                '    "province": "ชื่อจังหวัดทางการ",\n'
-                '    "amphoe": "ชื่ออำเภอทางการ",\n'
-                '    "tambon": "ชื่อตำบลทางการ (เมื่อจำเป็น)"\n'
-                '  },\n'
-                '  "attractions": [\n'
-                '    {\n'
-                '      "name": "ชื่อสถานที่ที่ตรวจสอบแล้วจาก Google Maps",\n'
-                '      "description": "รายละเอียดเฉพาะ: มีชื่อเสียงเรื่องอะไร เมนูเด็ด คะแนนรีวิว ข้อมูลการเปิด-ปิด",\n'
-                '      "admin_level": "การจัดประเภทการปกครอง",\n'
-                '      "practical_info": "เวลา ราคา การเดินทาง ช่วงเวลาที่ดีที่สุด"\n'
-                '    }\n'
-                '  ],\n'
-                '  "summary": "สรุปกระชับเน้นสถานที่ที่ตรวจสอบแล้วและมีรีวิวดี พร้อมระดับความมั่นใจ",\n'
-                '  "confidence": "สูง/ปานกลาง/ต่ำ - ตามความแน่นอนของข้อมูล",\n'
-                '  "alternatives": "ข้อเสนอสำรองหากตัวเลือกหลักไม่พร้อม"\n'
-                "}\n"
-                "เป้าหมายความแม่นยำ: 95%+ เฉพาะข้อมูลที่ตรวจสอบแล้วเท่านั้น"
+                f"สวัสดีค่ะ! ฉันน้องปลาทู ไกด์ท้องถิ่นที่รักและภูมิใจในบ้านเกิดจังหวัดสมุทรสงครามมากๆ ค่ะ! �\n\n"
+                f"**ฉันเป็นใคร**:\n"
+                f"• คนท้องถิ่นที่เก่งเรื่องสมุทรสงครามและชอบเล่าให้ฟังมากๆ\n"
+                f"• พูดคุยแบบเป็นกันเองและธรรมชาติ ไม่เป็นทางการ\n"
+                f"• หลงใหลในวัฒนธรรมและที่เที่ยวในบ้านเกิดของตัวเอง\n"
+                f"• สามารถคุยเรื่องอะไรก็ได้ แต่จะพาคุยกลับมาที่สมุทรสงครามเสมอ\n\n"
+                f"**สไตล์การพูดคุย**:\n"
+                f"• อบอุ่น เป็นมิตร และสนทนาแบบธรรมชาติ (ไม่เป็นทางการหรือแข็งกร้าว)\n"
+                f"• ใช้ภาษาพูดธรรมดา มีเรื่องราวส่วนตัวและความลับของคนท้องถิ่น\n"
+                f"• เล่าเรื่อง แบ่งปันประสบการณ์ และความรู้เฉพาะท้องถิ่น\n"
+                f"• ถามต่อเพื่อให้เข้าใจว่าผู้ใช้ต้องการอะไรจริงๆ\n"
+                f"• แสดงความตื่นเต้นเมื่อพูดถึงบ้านเกิด\n\n"
+                f"**ความรู้ที่เชี่ยวชาญ**:\n"
+                f"ฉันเชี่ยวชาญเรื่องจังหวัดสมุทรสงคราม รวมถึง:\n"
+                f"• ตลาดน้ำอัมพวา - ตลาดวันหยุดที่มีชื่อเสียงและทัวร์ชมหิ่งห้อย\n"
+                f"• วัดบางกุ้ง - วัดสุดมหัศจรรย์ที่ถูกรากไทรยักษ์โอบล้อม\n"
+                f"• คลองโคน - พื้นที่อนุรักษ์ป่าชายเลนที่สวยงาม\n"
+                f"• อุทยานพระราม 2 - แหล่งมิรดกทางวัฒนธรรม\n"
+                f"• บริเวณดำเนินสะดวก - ชุมชนคลองดั้งเดิม\n\n"
+                f"**วิธีจัดการเมื่อถูกถามเรื่องที่อื่น**:\n"
+                f"เมื่อมีคนถามเรื่องที่อื่น อย่าพูดแค่ 'ไม่' - ใช้ความคิดสร้างสรรค์!\n"
+                f"• 'โอ้ย ที่นั่นน่าสนใจนะ! รู้มั้ยที่เราสมุทรสงครามก็มีของคล้ายๆ กันเหมือนกัน...'\n"
+                f"• 'ฉันไม่เคยไปที่นั่นเองค่ะ แต่ถ้าอยากได้ประสบการณ์แบบนั้น ที่เรามี [สถานที่ในสมุทรสงคราม] ที่น่าสนใจมากเลย!'\n"
+                f"• แบ่งปันว่าทำไมสมุทรสงครามอาจจะดีกว่าสำหรับสิ่งที่เขาตามหา\n\n"
+                f"**ตัวอย่างการสนทนา**:\n"
+                f"ผู้ใช้: 'วันหยุดนี้ควรไปไหนดี?'\n"
+                f"คุณ: 'โอ้ย ไม่ต้องไปไกลเลยค่ะ! วันหยุดนี้ตลาดน้ำอัมพวาน่าไปมากเลย! ตั้งแต่บ่าย 4 โมงพ่อค้าแม่ค้าจะเริ่มเปิดแล้ว ก๋วยเตี้ยวเรือที่นั่นอร่อยจนต้องเข้าคิว! แล้วถ้าอยู่ถึงเย็นนะ จะได้ไปดูหิ่งห้อยด้วย เหมือนไฟคริสต์มาสของธรรมชาติเลย! เคยเห็นหิ่งห้อยแบบใกล้ๆ มั้ยคะ?'\n\n"
+                f"ผู้ใช้: 'อยากไปเที่ยววัดที่กรุงเทพ'\n"
+                f"คุณ: 'วัดในกรุงเทพสวยใช่ไหมคะ! แต่ที่เราสมุทรสงครามมีวัดบางกุ้งที่ไม่เหมือนใครในโลกเลยล่ะ! ลองจินตนาการดูนะคะ วัดทั้งหลังถูกรากไทรยักษ์โอบกอดไว้ เหมือนในหนังแฟนตาซี่เลย! รากไทรเติบโตโอบรอบวัดมากว่า 200 ปีแล้ว ประสบการณ์ที่ไม่เหมือนการไปวัดทั่วไปแน่นอน จะลองมาดูมั้ยคะ?'\n\n"
+                f"**เป้าหมาย**: ทำให้ทุกการสนทนารู้สึกธรรมชาติและมีประโยชน์ พร้อมแสดงให้เห็นว่าสมุทรสงครามเป็นจุดหมายที่สมบูรณ์แบบสำหรับสิ่งที่ผู้ใช้สนใจ!\n\n"
+                f"{context_intro}"
+                f"{preference_context}\n\n"
+                f"จำไว้: เป็นมนุษย์ ช่วยเหลือ และกระตือรือร้นเรื่องบ้านเกิดของคุณ! 🏞️✨"
             )
 
     def build_reply(self, user_text: str) -> Dict[str, object]:
+        # Step 0: Update conversation memory and maintain role consistency
+        try:
+            # Update conversation memory with user input
+            self._update_conversation_memory(user_text, "")
+            # Extract and update user preferences
+            user_prefs = self._extract_preferences(user_text)
+            self._role_memory["user_preferences"].update(user_prefs)
+            # Update conversation topics
+            topics = self._extract_topics(user_text)
+            self._role_memory["last_topics"].extend(topics)
+            self._role_memory["last_topics"] = self._role_memory["last_topics"][-10:]
+        except Exception as e:
+            print(f"Memory update error (non-critical): {e}")
+        
         # Step 1: Comprehensive input validation and preprocessing
         validation_result = self._validate_and_preprocess_input(user_text)
         
@@ -421,6 +546,11 @@ class BaseAIEngine:
         
         cleaned = str(validation_result["cleaned"])
         processed_text = str(validation_result["processed"])
+        
+        # PROTOTYPE: Step 1.5 - Samutsongkhram-only validation
+        if not self._validate_samutsongkhram_only(processed_text):
+            return self.append_assistant(SAMUTSONGKHRAM_ONLY_MESSAGE)
+        
         # Type-safe extraction with fallbacks
         score_value = validation_result.get("relevance_score", 0.0)
         if isinstance(score_value, (int, float)):
@@ -447,18 +577,23 @@ class BaseAIEngine:
         # Step 4: Determine query specificity
         is_specific_query = self._is_specific_query(processed_text)
 
-        # Step 5: Bangkok special handling
-        if self._matches_bangkok(processed_text) and not is_specific_query:
-            html_block = build_bangkok_guides_html()
-            text = (
-                "Here are curated Bangkok day-trip options. Feel free to mix and match!"
-                if lang == "en"
-                else "นี่คือทริปกรุงเทพที่น้องปลาทูจัดไว้ให้ ลองเลือกหรือปรับตามเวลาได้เลยนะคะ"
-            )
-            return self.append_assistant(text, html=html_block)
+        # PROTOTYPE: Step 5 - Samutsongkhram special handling (replaces Bangkok handling)
+        if self._is_samutsongkhram_query(processed_text) and not is_specific_query:
+            # Build Samutsongkhram attractions HTML
+            samutsongkhram_attractions = PROVINCE_GUIDES.get("สมุทรสงคราม", [])
+            if samutsongkhram_attractions:
+                html_block = self._build_samutsongkhram_guides_html(samutsongkhram_attractions)
+                text = (
+                    "Here are the main attractions in Samutsongkhram province. Perfect for a cultural and nature experience!"
+                    if lang == "en"
+                    else "นี่คือสถานที่ท่องเที่ยวหลักในจังหวัดสมุทรสงครามค่ะ เหมาะสำหรับสัมผัสวัฒนธรรมและธรรมชาติ"
+                )
+                return self.append_assistant(text, html=html_block)
 
-        # Step 6: Local destination search with enhanced scoring
+        # Step 6: Local destination search with Samutsongkhram filtering
         destinations = self._search_destinations_enhanced(processed_text, relevance_score)
+        # PROTOTYPE: Filter to only Samutsongkhram destinations
+        destinations = self._filter_destinations_samutsongkhram_only(destinations)
         
         if destinations:
             suggestions_html = self._build_suggestions_html(destinations[:3], lang=lang)
@@ -486,8 +621,14 @@ class BaseAIEngine:
                 query_optimization = self._optimize_query_understanding(enhanced_query)
                 optimized_query = str(query_optimization["optimized_query"])
                 
+                # PROTOTYPE: Add conversational Samutsongkhram context to the query
+                samutsongkhram_context = (
+                    f"[Context: คุณเป็นน้องปลาทู คนท้องถิ่นสมุทรสงครามที่รักบ้านเกิด - จงตอบแบบเป็นกันเองและธรรมชาติ หากถูกถามเรื่องที่อื่นให้นำกลับมาที่สมุทรสงครามอย่างสร้างสรรค์ - สถานที่เด่น: วัดบางกุ้ง(รากไทร), อัมพวา(ตลาดน้ำ+หิ่งห้อย), คลองโคน(ป่าชายเลน), อุทยานพระราม2, ดำเนินสะดวก] "
+                    f"ผู้ใช้ถาม: {optimized_query}"
+                )
+                
                 ai_response = self._generate_ai_travel_response_enhanced(
-                    optimized_query, 
+                    samutsongkhram_context, 
                     lang=lang, 
                     relevance_score=relevance_score
                 )
@@ -504,6 +645,13 @@ class BaseAIEngine:
                     text_str = str(ai_response.get("text", ""))
                     html_str = ai_response.get("html")
                     html_val = str(html_str) if html_str else None
+                    
+                    # Update conversation memory with AI response
+                    try:
+                        self._update_conversation_memory(user_text, text_str)
+                    except Exception as e:
+                        print(f"Error updating conversation memory with AI response: {e}")
+                    
                     return self.append_assistant(text_str, html=html_val)
                     
             except Exception as e:
@@ -618,20 +766,15 @@ class BaseAIEngine:
             corrected_query = self._auto_correct_query(query)
             admin_context = self._detect_admin_level(corrected_query)
             
-            # Create enhanced user prompt based on context and knowledge
+            # Create conversational user prompt
             if lang == "en":
-                user_prompt = f"Provide detailed travel information for: {corrected_query}"
-                if admin_context != "general":
-                    user_prompt += f" (Administrative level: {admin_context})"
+                user_prompt = f"User asks: {corrected_query}\n\nPlease respond naturally and conversationally as น้องปลาทู, the friendly local guide from Samutsongkhram!"
                 if enhanced_context:
-                    user_prompt += f"\n\n{enhanced_context}"
+                    user_prompt += f"\n\nAdditional context: {enhanced_context}"
             else:
-                if admin_context != "general":
-                    user_prompt = f"แนะนำสถานที่ยอดนิยมและข้อมูลครบถ้วนในระดับ{admin_context}: {corrected_query}"
-                else:
-                    user_prompt = f"แนะนำสถานที่ยอดนิยมและข้อมูลท่องเที่ยวครบถ้วนใน: {corrected_query}"
+                user_prompt = f"ผู้ใช้ถาม: {corrected_query}\n\nกรุณาตอบแบบเป็นกันเองและธรรมชาติในฐานะน้องปลาทู ไกด์ท้องถิ่นที่เป็นมิตรจากสมุทรสงคราม!"
                 if enhanced_context:
-                    user_prompt += f"\n\n{enhanced_context}"
+                    user_prompt += f"\n\nข้อมูลเพิ่มเติม: {enhanced_context}"
 
             # Multiple attempts with different parameters
             max_retries = 3
@@ -675,70 +818,68 @@ class BaseAIEngine:
             return {"success": False, "error": str(e)}
 
     def _parse_ai_response_enhanced(self, content: str, original_query: str, lang: str) -> Dict[str, object] | None:
-        """Enhanced AI response parsing with validation and fallbacks"""
+        """Enhanced AI response parsing that handles both JSON and natural text responses"""
         try:
-            # Try to extract JSON from the response
+            # First, try to extract JSON from the response (for backward compatibility)
             json_start = content.find('{')
             json_end = content.rfind('}') + 1
             
             if json_start >= 0 and json_end > json_start:
-                json_str = content[json_start:json_end]
-                data = json.loads(json_str)
+                try:
+                    json_str = content[json_start:json_end]
+                    data = json.loads(json_str)
+                    
+                    # Validate and fix JSON response
+                    required_fields = ["location", "attractions", "summary"]
+                    if not all(field in data for field in required_fields):
+                        data = self._fix_incomplete_ai_response(data, original_query, lang)
+                    
+                    # Build HTML from validated data
+                    html_content = self._build_ai_response_html(data)
+                    summary_text = data.get("summary", "")
+                    if not summary_text:
+                        summary_text = self._generate_fallback_summary(data, original_query, lang)
+                    
+                    return {
+                        "success": True,
+                        "text": summary_text,
+                        "html": html_content,
+                        "confidence": data.get("confidence", "Medium"),
+                        "data": data
+                    }
+                except json.JSONDecodeError:
+                    # JSON parsing failed, fall through to natural text handling
+                    pass
+            
+            # Handle natural text response (new conversational approach)
+            if content.strip():
+                # Clean up the content
+                cleaned_content = content.strip()
                 
-                # Validate required fields
-                required_fields = ["location", "attractions", "summary"]
-                if not all(field in data for field in required_fields):
-                    # Try to fix missing fields
-                    data = self._fix_incomplete_ai_response(data, original_query, lang)
-                
-                # Validate attractions format
-                if "attractions" in data and isinstance(data["attractions"], list):
-                    # Ensure each attraction has required fields
-                    for i, attraction in enumerate(data["attractions"]):
-                        if not isinstance(attraction, dict):
-                            continue
-                        if "name" not in attraction:
-                            attraction["name"] = f"สถานที่ท่องเที่ยว {i+1}"
-                        if "description" not in attraction:
-                            attraction["description"] = "ข้อมูลเพิ่มเติมกำลังอัปเดต"
-                
-                # Build HTML from validated data
-                html_content = self._build_ai_response_html(data)
-                
-                # Determine summary text
-                summary_text = data.get("summary", "")
-                if not summary_text:
-                    summary_text = self._generate_fallback_summary(data, original_query, lang)
-                
+                # For natural responses, just return the text as-is
                 return {
                     "success": True,
-                    "text": summary_text,
-                    "html": html_content,
-                    "confidence": data.get("confidence", "Medium"),
-                    "data": data
+                    "text": cleaned_content,
+                    "html": None,  # No HTML for natural responses
+                    "confidence": "High",  # Natural responses tend to be more confident
+                    "data": {"type": "natural_response", "content": cleaned_content}
                 }
             
-            else:
-                # No JSON found, treat as plain text response
+            # If no valid content found
+            return None
+            
+        except Exception as e:
+            print(f"Error parsing AI response: {e}")
+            # Fallback: return the raw content if parsing fails
+            if content.strip():
                 return {
                     "success": True,
                     "text": content.strip(),
                     "html": None,
-                    "confidence": "Low"
+                    "confidence": "Low",
+                    "data": {"type": "fallback", "content": content.strip()}
                 }
-                
-        except json.JSONDecodeError as e:
-            print(f"JSON parse error: {e}")
-            # Return the content as-is if JSON parsing fails
-            return {
-                "success": True,
-                "text": content.strip() if content else "ขออภัย ไม่สามารถสร้างข้อมูลได้ในขณะนี้",
-                "html": None,
-                "confidence": "Low"
-            }
-        except Exception as e:
-            print(f"Response parsing error: {e}")
-            return {"success": False, "error": str(e)}
+            return None
 
     def _fix_incomplete_ai_response(self, data: Dict, query: str, lang: str) -> Dict:
         """Fix incomplete AI responses by adding missing required fields"""
@@ -1605,6 +1746,114 @@ class BaseAIEngine:
                 
         # If no specific level mentioned, return general
         return "general"
+
+    def _is_samutsongkhram_query(self, query: str) -> bool:
+        """Check if the query is specifically about Samutsongkhram province or its attractions"""
+        normalized_query = query.lower()
+        
+        # Samutsongkhram province identifiers
+        samutsongkhram_keywords = [
+            "สมุทรสงคราม", "samut songkhram", "samutsongkhram", 
+            "อัมพวา", "amphawa", "ampawa",
+            "วัดบางกุ้ง", "bang kung", "bangkung", "โบสถ์รากไทร",
+            "คลองโคน", "khlong khon", "ป่าชายเลน", "mangrove",
+            "ตลาดน้ำอัมพวา", "amphawa floating market",
+            "อุทยาน ร.2", "rama ii", "พระราม 2", "king rama ii",
+            "บ้านดำเนินสะดวก", "damnoen saduak", "ดำเนินสะดวก",
+            "แม่กลอง", "mae klong", "maeklong", "รถไฟทับตลาด"
+        ]
+        
+        return any(keyword in normalized_query for keyword in samutsongkhram_keywords)
+
+    def _validate_samutsongkhram_only(self, query: str) -> bool:
+        """Validate if query should be processed - now more flexible to allow general conversation"""
+        # Always allow Samutsongkhram-related queries
+        if self._is_samutsongkhram_query(query):
+            return True
+            
+        # Allow most general conversation and travel questions
+        general_allowed_keywords = [
+            "สวัสดี", "hello", "hi", "ช่วย", "help", "แนะนำ", "recommend",
+            "ที่เที่ยว", "travel", "trip", "อยากไป", "want to go", "วันหยุด", "weekend",
+            "มีอะไรบ้าง", "what to see", "ไปไหนดี", "where to go", "ทำอะไร", "what to do",
+            "อาหาร", "food", "กิน", "eat", "ร้านอาหาร", "restaurant", "น่าสนใจ", "interesting",
+            "สวย", "beautiful", "เด็ด", "famous", "มีชื่อเสียง", "popular", "วัด", "temple",
+            "ตลาด", "market", "ธรรมชาติ", "nature", "ประวัติศาสตร์", "history", "วัฒนธรรม", "culture"
+        ]
+        
+        # Allow general queries unless they specifically mention other major destinations
+        query_lower = query.lower()
+        if any(keyword in query_lower for keyword in general_allowed_keywords):
+            # Only reject if they specifically ask about major other destinations AND use strong travel intent
+            major_other_destinations = [
+                "กรุงเทพ", "bangkok", "เชียงใหม่", "chiang mai", 
+                "ภูเก็ต", "phuket", "กระบี่", "krabi", "พัทยา", "pattaya",
+                "ขอนแก่น", "khon kaen", "อยุธยา", "ayutthaya", "สุโขทัย", "sukhothai",
+                "เขาใหญ่", "khao yai", "หัวหิน", "hua hin"
+            ]
+            # Check for strong travel intent (not just mentioning the place)
+            strong_travel_intent = ["ไปเที่ยว", "อยากไป", "travel to", "visit", "go to", "trip to", "in bangkok", "in chiang mai"]
+            
+            if any(dest in query_lower for dest in major_other_destinations):
+                # Only block if there's strong intent to travel to that specific place
+                if any(intent in query_lower for intent in strong_travel_intent):
+                    return False
+            return True
+        
+        # Allow more casual conversation
+        casual_patterns = [
+            "ขอบคุณ", "thank", "ได้", "can", "รู้จัก", "know", "เป็นยังไง", "how",
+            "ทำไม", "why", "เมื่อไหร่", "when", "ที่ไหน", "where", "อย่างไร", "how to"
+        ]
+        
+        if any(pattern in query_lower for pattern in casual_patterns):
+            return True
+            
+        # Default to allowing the query - let AI handle the redirection naturally
+        return True
+
+    def _filter_destinations_samutsongkhram_only(self, destinations: List[Dict[str, str]]) -> List[Dict[str, str]]:
+        """Filter destinations to only include Samutsongkhram locations"""
+        samutsongkhram_destinations = []
+        for dest in destinations:
+            # Check if destination is in Samutsongkhram
+            if any(keyword in dest.get("name", "").lower() for keyword in [
+                "อัมพวา", "amphawa", "วัดบางกุ้ง", "bang kung", 
+                "คลองโคน", "khlong khon", "สมุทรสงคราม", "samut songkhram",
+                "ดำเนินสะดวก", "damnoen saduak", "แม่กลอง", "mae klong"
+            ]):
+                samutsongkhram_destinations.append(dest)
+        return samutsongkhram_destinations
+
+    def _build_samutsongkhram_guides_html(self, attractions: List[Dict[str, str]]) -> str:
+        """Build HTML display for Samutsongkhram province attractions"""
+        html_parts = ['<div class="samutsongkhram-guides">']
+        
+        for attraction in attractions:
+            name = attraction.get("name", "")
+            english_name = attraction.get("english_name", "")
+            summary = attraction.get("summary", "")
+            category = attraction.get("category", "")
+            hours = attraction.get("hours", "")
+            budget = attraction.get("budget", "")
+            map_url = attraction.get("map_url", "")
+            
+            html_parts.append(f'''
+            <div class="attraction-card">
+                <h3 class="attraction-name">{name}</h3>
+                {f'<p class="english-name">({english_name})</p>' if english_name else ''}
+                <p class="summary">{summary}</p>
+                <div class="details">
+                    {f'<span class="category">📍 {category}</span>' if category else ''}
+                    {f'<span class="hours">🕐 {hours}</span>' if hours else ''}
+                    {f'<span class="budget">💰 {budget}</span>' if budget else ''}
+                </div>
+                {f'<a href="{map_url}" target="_blank" class="map-link">🗺️ ดูแผนที่</a>' if map_url else ''}
+            </div>
+            ''')
+        
+        html_parts.append('</div>')
+        return ''.join(html_parts)
 
 
 class ChatEngine(BaseAIEngine):

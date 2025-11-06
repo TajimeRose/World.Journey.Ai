@@ -11,6 +11,9 @@ from pymongo import MongoClient, ASCENDING, DESCENDING
 
 from flask import Blueprint, current_app, jsonify, request
 
+# Import SimpleChatbot for easier development
+from ..services.simple_chatbot import SimpleChatbot
+
 # Create API blueprint
 load_dotenv()
 
@@ -324,4 +327,69 @@ def get_history():
         return jsonify({"ok": False, "error": f"mongo error: {exc}"}), 500
 
     return jsonify({"ok": True, "count": len(docs), "docs": docs})
+
+
+# =============================================================================
+# SIMPLE CHATBOT ENDPOINT - Easy to modify for non-experts
+# =============================================================================
+
+@api_bp.route("/simple-chat", methods=["POST"])
+def simple_chat():
+    """
+    Simple chat endpoint using SimpleChatbot - easier for non-experts to modify.
+    
+    This endpoint is designed to be simple and accessible for developers who
+    are not advanced Python programmers. All the chatbot logic is contained
+    in the SimpleChatbot class which has clear, easy-to-edit methods.
+    
+    Request Body:
+        JSON object with:
+        - 'message' field containing the user's message
+        
+    Returns:
+        JSON response with bot reply
+    """
+    try:
+        # Get the user's message
+        data = request.get_json(silent=True) or {}
+        user_message = str(data.get("message", "")).strip()
+        
+        # Basic validation
+        if not user_message:
+            return jsonify({
+                "error": "กรุณาใส่ข้อความ",
+                "success": False
+            }), 400
+            
+        if len(user_message) > 1000:  # Simple limit
+            return jsonify({
+                "error": "ข้อความยาวเกินไป กรุณาใส่ข้อความสั้นกว่านี้",
+                "success": False
+            }), 400
+        
+        # Create simple chatbot with a temporary message store
+        # For production, you might want to use a persistent store
+        from ..services.messages import MessageStore
+        temp_message_store = MessageStore()  # Simple temporary storage
+        chatbot = SimpleChatbot(temp_message_store)
+        
+        # Get bot response (all the logic is in SimpleChatbot class)
+        bot_response = chatbot.chat(user_message)
+        
+        # Return response
+        return jsonify({
+            "message": user_message,
+            "response": bot_response,
+            "success": True
+        })
+        
+    except Exception as e:
+        # Log the error for debugging
+        current_app.logger.error(f"Simple chat error: {e}")
+        
+        # Return a simple error message
+        return jsonify({
+            "error": "เกิดข้อผิดพลาด กรุณาลองใหม่อีกครั้ง",
+            "success": False
+        }), 500
 
