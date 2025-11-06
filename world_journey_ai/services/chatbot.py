@@ -128,9 +128,9 @@ class ChatEngine:
             )
             return self.append_assistant(text, html=html_block)
 
-        # Try local destinations first
+        # Try local destinations first (exact match)
         destinations = self._search_destinations(cleaned)
-        
+
         # If we have local matches, use them
         if destinations:
             suggestions_html = self._build_suggestions_html(destinations[:3], lang=lang)
@@ -138,6 +138,16 @@ class ChatEngine:
                 f"I found a few places matching \"{cleaned}\". Here are the first 3."
                 if lang == "en"
                 else f"น้องปลาทูรวบรวมที่เที่ยวที่น่าจะตรงกับ \"{cleaned}\" มาให้ 3 ตัวเลือกแรก ลองดูรายละเอียดด้านล่างได้เลยนะคะ"
+            )
+            return self.append_assistant(summary, html=suggestions_html)
+
+        # If no exact local matches, try a fuzzy local search before calling AI.
+        fuzzy_matches = self._fuzzy_search_destinations(cleaned)
+        if fuzzy_matches:
+            # Offer clarifying options rather than guessing
+            suggestions_html = self._build_suggestions_html(fuzzy_matches[:3], lang=lang)
+            summary = (
+                f"Did you mean one of these places?" if lang == "en" else "หมายถึงสถานที่ใดในนี้หรือเปล่า? ลองเลือกดูที่ใกล้เคียงที่สุด"
             )
             return self.append_assistant(summary, html=suggestions_html)
 
@@ -194,6 +204,66 @@ class ChatEngine:
                 results.append(item)
 
         return results
+
+    def _fuzzy_search_destinations(self, query: str, *, cutoff: float = 0.55) -> List[Dict[str, str]]:
+        """Return destinations that fuzzily match the query using sequence similarity.
+
+        This helps surface close local matches and avoid unnecessary AI calls.
+        """
+        from difflib import SequenceMatcher
+        from .province_guides import PROVINCE_SYNONYMS
+
+        def token_set(text: str) -> set[str]:
+            return {t for t in re.split(r"[^\w\u0E00-\u0E7F]+", text.lower()) if t}
+
+        norm = self._normalize(query)
+        q_tokens = token_set(query)
+
+        scored: List[tuple[Dict[str, str], float]] = []
+        for item in self._destinations:
+            # build candidate haystack variants (name, english_name, city, synonyms)
+            parts = [item.get("name", ""), item.get("city", ""), item.get("description", "")]
+            # include english_name if present
+            if item.get("english_name"):
+                parts.append(item.get("english_name"))
+
+            # include province synonyms for the city (if any)
+            city = item.get("city", "")
+            syns = PROVINCE_SYNONYMS.get(city, []) if isinstance(PROVINCE_SYNONYMS, dict) else []
+            parts.extend(syns)
+
+            haystack = " ".join([p for p in parts if p])
+            hay = self._normalize(haystack)
+            if not hay:
+                continue
+
+            # Sequence similarity
+            seq_score = SequenceMatcher(None, norm, hay).ratio()
+
+            # Token Jaccard (overlap of normalized token sets)
+            hay_tokens = token_set(haystack)
+            inter = q_tokens.intersection(hay_tokens)
+            union = q_tokens.union(hay_tokens) or {""}
+            token_jaccard = len(inter) / len(union)
+
+            # Partial token match score: best SequenceMatcher between query and any individual token
+            best_partial = 0.0
+            for tk in hay_tokens:
+                if not tk:
+                    continue
+                s = SequenceMatcher(None, query.lower(), tk).ratio()
+                if s > best_partial:
+                    best_partial = s
+
+            # Combined weighted score
+            score = (0.5 * seq_score) + (0.35 * token_jaccard) + (0.15 * best_partial)
+
+            if score >= cutoff:
+                scored.append((item, score))
+
+        # sort by score desc
+        scored.sort(key=lambda x: x[1], reverse=True)
+        return [s[0] for s in scored]
 
     def _build_suggestions_html(self, suggestions: List[Dict[str, str]], *, lang: str = "th") -> str:
         """Build HTML for destination suggestions"""
@@ -281,7 +351,7 @@ class ChatEngine:
                     {"role": "system", "content": system_prompt},
                     {"role": "user", "content": user_prompt},
                 ],
-                temperature=0.3,
+                temperature=0.0,
                 max_tokens=600
             )
 
