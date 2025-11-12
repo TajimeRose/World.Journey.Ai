@@ -1,20 +1,31 @@
-﻿from __future__ import annotations
+﻿"""Destination data management for World Journey AI.
+
+This module provides destination data for both domestic (Thailand) and 
+international travel locations, built from province guides and curated lists.
+"""
+
+from __future__ import annotations
 
 from typing import Dict, List
 
-DESTINATIONS: List[Dict[str, str]] = [
-    {
-        "name": "กรุงเทพมหานคร",
-        "city": "ประเทศไทย",
-        "description": "มหานครที่รวมวัดสำคัญ คาเฟ่ริมเจ้าพระยา และสตรีทฟู้ดแบบจัดเต็ม",
-        "mapUrl": "https://www.google.com/maps/place/Bangkok",
-    },
-    {
-        "name": "สมุทรสงคราม",
-        "city": "ประเทศไทย",
-        "description": "ล่องเรือชมวิถีชุมชนอัมพวา ตลาดน้ำยามเย็น และบัวลอยไข่เค็มเจ้าเด็ด",
-        "mapUrl": "https://www.google.com/maps/place/Samut+Songkhram",
-    },
+from .province_guides import PROVINCE_GUIDES
+
+# Type aliases
+DestinationDict = Dict[str, str]
+DestinationList = List[DestinationDict]
+
+# Keywords for Bangkok identification
+BANGKOK_KEYWORDS = (
+    "กรุงเทพ",
+    "กรุงเทพมหานคร",
+    "bangkok",
+    "bkk", 
+    "krung thep",
+    "krungthep",
+)
+
+# International destinations data
+INTERNATIONAL_DESTINATIONS: DestinationList = [
     {
         "name": "โซล",
         "city": "เกาหลีใต้",
@@ -51,44 +62,78 @@ DESTINATIONS: List[Dict[str, str]] = [
         "description": "ชมโคลอสเซียมข้างใน เดินเล่นตรอกทราสเตเวเร และชิมเจลาโตสูตรโบราณ",
         "mapUrl": "https://www.google.com/maps/place/Rome",
     },
-    {
-        "name": "ภูเก็ต",
-        "city": "ประเทศไทย",
-        "description": "ดำน้ำหมู่เกาะพีพี ชมพระอาทิตย์ตกที่แหลมพรหมเทพ และคาเฟ่วิวทะเล",
-        "mapUrl": "https://www.google.com/maps/place/Phuket",
-    },
-    {
-        "name": "พัทยา",
-        "city": "ประเทศไทย",
-        "description": "ชายหาดจอมเทียน ถนนคนเดินวอล์คกิ้งสตรีท และเกาะล้านแบบวันเดียวเที่ยวได้",
-        "mapUrl": "https://www.google.com/maps/place/Pattaya",
-    },
-    {
-        "name": "เชียงใหม่",
-        "city": "ประเทศไทย",
-        "description": "คาเฟ่ดอยสุเทพ ตลาดวโรรส และขับรถเที่ยวแม่กำปองในวันเดียว",
-        "mapUrl": "https://www.google.com/maps/place/Chiang+Mai",
-    },
 ]
-from .province_guides import PROVINCE_GUIDES
 
-DESTINATIONS: List[Dict[str, str]] = []
-for province, entries in PROVINCE_GUIDES.items():
-    for entry in entries[:5]:
-        DESTINATIONS.append(
-            {
+
+def _build_domestic_destinations() -> DestinationList:
+    """Build domestic destinations from province guides.
+    
+    Returns:
+        List of domestic destination dictionaries
+    """
+    destinations = []
+    
+    for province, entries in PROVINCE_GUIDES.items():
+        # Take first 5 entries per province to avoid overwhelming the list
+        for entry in entries[:5]:
+            destinations.append({
                 "name": entry["name"],
                 "city": province,
                 "description": entry["summary"],
                 "mapUrl": entry["map_url"],
-            }
-        )
+            })
+    
+    return destinations
 
-BANGKOK_KEYWORDS = (
-    "กรุงเทพ",
-    "กรุงเทพมหานคร",
-    "bangkok",
-    "bkk",
-    "krung thep",
-    "krungthep",
-)
+
+def _combine_all_destinations() -> DestinationList:
+    """Combine domestic and international destinations.
+    
+    Returns:
+        Complete list of all available destinations
+    """
+    domestic = _build_domestic_destinations()
+    all_destinations = domestic + INTERNATIONAL_DESTINATIONS
+    return all_destinations
+
+
+# Main destinations list - combining domestic and international
+DESTINATIONS: DestinationList = _combine_all_destinations()
+
+
+def get_destinations_by_type(destination_type: str = "all") -> DestinationList:
+    """Get destinations filtered by type.
+    
+    Args:
+        destination_type: "domestic", "international", or "all"
+        
+    Returns:
+        Filtered list of destinations
+        
+    Raises:
+        ValueError: If destination_type is not valid
+    """
+    if destination_type == "all":
+        return DESTINATIONS
+    elif destination_type == "domestic":
+        return _build_domestic_destinations()
+    elif destination_type == "international":
+        return INTERNATIONAL_DESTINATIONS
+    else:
+        raise ValueError(f"Invalid destination type: {destination_type}")
+
+
+def get_destinations_count() -> Dict[str, int]:
+    """Get count of destinations by type.
+    
+    Returns:
+        Dictionary with counts for each destination type
+    """
+    domestic_count = len(_build_domestic_destinations())
+    international_count = len(INTERNATIONAL_DESTINATIONS)
+    
+    return {
+        "domestic": domestic_count,
+        "international": international_count,
+        "total": domestic_count + international_count,
+    }

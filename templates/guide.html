@@ -1,0 +1,111 @@
+<!DOCTYPE html>
+<html lang="th">
+
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Travel Guide - World Journey AI</title>
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link href="https://fonts.googleapis.com/css2?family=Prompt:wght@400;500;600;700&display=swap" rel="stylesheet">
+    <link rel="stylesheet" href="{{ url_for('static', filename='css/guide.css') }}">
+    <link rel="icon" href="{{ url_for('static', filename='img/favicon.ico') }}" type="image/x-icon">
+    <script src="{{ url_for('static', filename='js/guide.js') }}" defer></script>
+</head>
+
+<body>
+    <!-- header / navbar -->
+    <div class="site-header">
+        <nav class="navbar" aria-label="หลัก">
+            <a class="brand" href="/">
+                <span class="mark">AI</span>
+                <span>NongPlaToo.AI</span>
+            </a>
+
+            <!-- Mobile menu button -->
+            <button class="mobile-menu-btn" type="button" aria-label="เปิดเมนู" aria-expanded="false">
+                <span class="hamburger"></span>
+                <span class="hamburger"></span>
+                <span class="hamburger"></span>
+            </button>
+
+            <!-- Navigation menu -->
+            <div class="nav-menu">
+                <div class="nav-links">
+                    <a href="/" class="nav-link">หน้าแรก</a>
+                    <a href="/chat" class="nav-link">สนทนากับน้องปลาทู</a>
+                    <a href="/guide" class="nav-link active">คู่มือท่องเที่ยว</a>
+                </div>
+                <div class="nav-auth">
+                    <div id="guestControls" class="nav-guest">
+                        <a href="/login" class="nav-link">เข้าสู่ระบบ</a>
+                    </div>
+                    <div id="userControls" class="nav-user" hidden aria-live="polite">
+                        <span id="userDisplayName" class="nav-user-name">ผู้ใช้งาน</span>
+                        <span id="userEmail" class="nav-user-email"></span>
+                        <button type="button" id="logoutButton" class="nav-logout">ออกจากระบบ</button>
+                    </div>
+                </div>
+            </div>
+        </nav>
+    </div>
+
+    <!-- main guide area -->
+    <main class="guide-shell" role="main">
+        <div class="guide-top-bar" role="heading" aria-level="1">
+            <span class="guide-title">คู่มือท่องเที่ยว</span>
+            <span class="guide-subtitle">แนะนำเส้นทางและสถานที่น่าสนใจ</span>
+        </div>
+
+        <section class="guide-main" aria-labelledby="guide-title">
+            <header class="guide-hero">
+                <p class="hero-kicker">คู่มือท่องเที่ยว</p>
+                <h1 id="guide-title">เลือกรูปแบบการวางแผนท่องเที่ยวของคุณ</h1>
+                <p class="hero-subtitle">เลือกวิธีการวางแผนการเดินทางที่เหมาะกับคุณ
+                    ระบบ AI จะช่วยให้การท่องเที่ยวของคุณสมบูรณ์แบบ</p>
+            </header>
+
+            <div id="guide-content" class="guide-content" role="main">
+                <div class="trip-options">
+                    <div class="option-card" data-option="automatic">
+                        <div class="option-icon">🤖</div>
+                        <h2>Automatic Trip Recommendation System</h2>
+                        <p>ให้ AI วางแผนทริปให้คุณแบบอัตโนมัติ เพียงบอกงบประมาณ ระยะเวลา และความชอบ
+                            ระบบจะจัดเส้นทาง สถานที่ท่องเที่ยว และกิจกรรมให้ทั้งหมด</p>
+                        <div class="option-features">
+                            <span class="feature-tag">🎯 วางแผนอัตโนมัติ</span>
+                            <span class="feature-tag">📅 จัดตารางเวลา</span>
+                            <span class="feature-tag">💰 คำนวณงบประมาณ</span>
+                            <span class="feature-tag">🗺️ เส้นทางที่เหมาะสม</span>
+                        </div>
+                        <button class="option-button" onclick="selectTripOption('automatic')">
+                            เริ่มวางแผนอัตโนมัติ
+                        </button>
+                    </div>
+
+                    <div class="option-card" data-option="manual">
+                        <div class="option-icon">✋</div>
+                        <h2>Manual Trip Planning with AI Assistant</h2>
+                        <p>วางแผนทริปด้วยตัวเองแต่มี AI เป็นผู้ช่วย คุณเลือกสถานที่และกิจกรรมเอง
+                            AI จะคอยแนะนำเพิ่มเติมและช่วยปรับปรุงแผนการเดินทาง</p>
+                        <div class="option-features">
+                            <span class="feature-tag">🎨 ควบคุมเองได้</span>
+                            <span class="feature-tag">🤝 AI เป็นผู้ช่วย</span>
+                            <span class="feature-tag">💡 แนะนำเพิ่มเติม</span>
+                            <span class="feature-tag">⚡ ปรับแผนได้ทันที</span>
+                        </div>
+                        <button class="option-button" onclick="selectTripOption('manual')">
+                            เริ่มวางแผนด้วยตนเอง
+                        </button>
+                    </div>
+                </div>
+            </div>
+
+            <!-- Removed sidebar for cleaner focus on two options -->
+        </section>
+    </main>
+
+    <div id="toast-region" class="toast-region" aria-live="assertive" aria-atomic="true"></div>
+</body>
+
+</html>
