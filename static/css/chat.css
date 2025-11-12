@@ -651,6 +651,23 @@ a:focus {
     transform: none;
 }
 
+.chat-disclaimer {
+    text-align: left;
+    color: rgba(255, 255, 255, 0.85);
+    font-size: 0.8rem;
+    line-height: 1.4;
+}
+
+.chat-disclaimer p {
+    margin: 0.25rem 0;
+}
+
+.disclaimer-en {
+    font-size: 0.75rem;
+    color: rgba(148, 163, 184, 0.7);
+    font-style: italic;
+}
+
 .toast-region {
     position: fixed;
     right: 1.5rem;
@@ -1185,4 +1202,73 @@ a:focus {
         font-size: 0.7rem;
         padding: 0.2rem 0.4rem;
     }
+}
+
+/* Place Card Styles - TAT Data Display */
+.places-container {
+    display: flex;
+    flex-direction: column;
+    gap: 0.875rem;
+    margin-top: 1rem;
+    padding-top: 1rem;
+    border-top: 1px solid rgba(30, 136, 229, 0.2);
+}
+
+.place-card {
+    background: linear-gradient(135deg, rgba(30, 136, 229, 0.08), rgba(16, 185, 129, 0.06));
+    border: 1px solid rgba(30, 136, 229, 0.25);
+    border-radius: 12px;
+    padding: 1rem;
+    transition: all 0.3s ease;
+}
+
+.place-card:hover {
+    transform: translateY(-2px);
+    box-shadow: 0 4px 12px rgba(30, 136, 229, 0.2);
+    border-color: rgba(30, 136, 229, 0.4);
+}
+
+.place-card-header {
+    margin-bottom: 0.75rem;
+}
+
+.place-card-title {
+    margin: 0 0 0.5rem 0;
+    font-size: 1.1rem;
+    font-weight: 600;
+    color: #60a5fa;
+    line-height: 1.4;
+}
+
+.place-card-location {
+    font-size: 0.875rem;
+    color: #cbd5e1;
+    display: flex;
+    align-items: center;
+    gap: 0.3rem;
+}
+
+.place-card-description {
+    margin: 0.75rem 0;
+    font-size: 0.9rem;
+    line-height: 1.6;
+    color: #e2e8f0;
+}
+
+.place-card-hours,
+.place-card-contact {
+    font-size: 0.85rem;
+    color: #cbd5e1;
+    margin-top: 0.5rem;
+    display: flex;
+    align-items: center;
+    gap: 0.3rem;
+}
+
+.place-card-hours {
+    color: #6ee7b7;
+}
+
+.place-card-contact {
+    color: #93c5fd;
 }
