@@ -1,93 +1,202 @@
-# World Journey AI
+# World Journey AI – Samut Songkhram Tourism
 
-สามหน้าหลักสำหรับวางแผนการเดินทางด้วย AI น้องปลาทู พร้อม Firebase Authentication
+GPT + TAT API travel assistant for Samut Songkhram Province.
 
-## ✨ คุณสมบัติพิเศษ
+## Features
 
-### 🔧 Auto-Correction (แก้ไขคำผิดอัตโนมัติ)
-- แก้ไขการพิมพ์ผิดในชื่อสถานที่โดยอัตโนมัติ
-- รองรับคำค้นแบบผสม (สถานที่ + คำบุพบท + คำบรรยาย)
-- **ตัวอย่างภาษาไทย:**
-  - "ตลาดร่มหัก" → "ตลาดร่มหุบ" ✓
-  - "ร้านกาเฟ ใกล้ วัดพระแกว" → "ร้านกาแฟ ใกล้ วัดพระแก้ว" ✓
-  - "โรงเเรม ใน กรุงเทพ" → "โรงแรม ใน กรุงเทพมหานคร" ✓
-- **ตัวอย่างภาษาอังกฤษ:**
-  - "resturant near bangok" → "restaurant near Bangkok" ✓
-  - "best restaurnt ayuthaya" → "best restaurant Ayutthaya" ✓
-- **คุณสมบัติพิเศษ:**
-  - ใช้ Adaptive Threshold: 75% สำหรับคำยาว (8+ ตัวอักษร), 80% สำหรับคำสั้น
-  - เก็บคำบุพบทและคำเชื่อม (ใน, ใกล้, near, in, and, etc.)
-  - แก้ไขคำยาวผสม (compound words) ได้แม่นยำ
+- **GPT-powered chat** (OPENAI_MODEL, default: gpt-5)
+- **TAT verified data** (Tourism Authority of Thailand)
+- **Intent detection** (attractions, restaurants, accommodation, events, etc.)
+- **Bilingual** (Thai/English)
+- **Place cards** (structured data + AI narrative)
 
-### 🌏 ค้นหาแบบเฉพาะเจาะจง
-- สามารถค้นหาประเภทสถานที่เจาะจง เช่น "ร้านกาแฟ กรุงเทพ"
-- AI จะแนะนำสถานที่ที่ตรงกับคำค้นหา ไม่ใช่แค่ท่องเที่ยวทั่วไป
+## Quick Start
 
-### 🗣️ รองรับสองภาษา
-- ตรวจจับภาษาอัตโนมัติ (ไทย/อังกฤษ)
-- ตอบกลับในภาษาเดียวกับที่ผู้ใช้พิมพ์
-
-## การติดตั้ง
-1. ติดตั้ง Python 3.10 ขึ้นไป และสร้าง virtual environment
+1. **Install**:
    ```bash
-   python -m venv .venv
-   .venv\Scripts\activate
+   pip install -r requirements.txt
    ```
-2. ติดตั้งไลบรารีที่จำเป็น
-   ```bash
-   pip install flask flask-cors
+
+2. **Configure** `.env`:
+   ```env
+   TAT_API_KEY=your_tat_key
+   OPENAI_API_KEY=your_openai_key
+   OPENAI_MODEL=gpt-4o
    ```
-3. ตั้งค่าตัวแปรสภาพแวดล้อมสำหรับ Firebase ตามไฟล์ `.env`
-   ```text
-   OPENAI_API_KEY=
-   FIREBASE_API_KEY
-   FIREBASE_AUTH_DOMAIN
-   FIREBASE_PROJECT_ID
-   FIREBASE_APP_ID
-   FIREBASE_MESSAGING_SENDER_ID (ถ้ามี)
-   FIREBASE_DATABASE_URL (ถ้ามี)
-   FIREBASE_STORAGE_BUCKET (ถ้ามี)
-   ```
-4. รันเซิร์ฟเวอร์
+
+3. **Run**:
    ```bash
    python app.py
    ```
-5. เปิดเว็บเบราว์เซอร์ไปที่ http://127.0.0.1:5000
+   Visit: http://localhost:5000
 
-## โครงสร้างโปรเจกต์
+**Example Interaction**:
 ```
-project_root/
-├── app.py
-├── firebase_config.js
-├── requirements.txt (optional)
+You: แนะนำที่เที่ยวสมุทรสงครามหน่อย
+AI: สมุทรสงครามมีแหล่งท่องเที่ยวที่น่าสนใจมากมายค่ะ...
+
+[Place Card: ตลาดน้ำอัมพวา]
+📍 Location: อัมพวา, สมุทรสงคราม
+🕐 Hours: 15:00-21:00 (ศุกร์-อาทิตย์)
+Description: ตลาดน้ำที่มีชื่อเสียง...
+
+[Place Card: วัดบางกุ้ง]
+...
+```
+
+## 📁 Project Structure
+
+```
+World.Journey.Ai/
+├── app.py                    # Flask web server + API endpoints
+├── chat.py                   # TravelChatbot orchestration
+├── gpt_service.py            # GPT-4 integration service
+├── tat_api.py                # TAT API client + intent detection
+├── requirements.txt          # Python dependencies
+├── .env.example              # Environment template
 ├── static/
 │   ├── css/
-│   │   ├── chat.css
+│   │   ├── chat.css          # Chat UI + place card styles
 │   │   ├── index.css
-│   │   └── login.css
-│   ├── img/
-│   │   ├── globe.png
-│   │   └── favicon.ico
-│   └── js/
-│       ├── auth-state.js
-│       ├── chat.js
-│       ├── firebase-init.js
-│       ├── index.js
-│       └── login.js
+│   │   └── ...
+│   ├── js/
+│   │   ├── chat.js           # Chat interface + structured data rendering
+│   │   ├── firebase-init.js
+│   │   └── ...
+│   └── img/
 └── templates/
-    ├── chat.html
+    ├── chat.html             # Main chat interface
     ├── index.html
-    └── login.html
+    └── ...
 ```
 
-## ฟังก์ชันหลัก
-- `/login` ลงชื่อเข้าใช้/สมัครสมาชิกผ่าน Firebase พร้อมบันทึก Display Name ลง Realtime Database
-- `/` หน้า Landing มีโลกหมุน ฟังก์ชันพูด-พิมพ์-แนบรูป และส่งต่อไปยังห้องแชต
-- `/chat` ห้องสนทนา AI แสดงชื่อผู้ใช้/AI, แถบพิมพ์พร้อมไมค์และไฟล์ และการพิมพ์ตอบแบบ typing animation
-- `/api/search` คืนข้อมูลสถานที่ (กรุงเทพ, สมุทรสงคราม, โซล ฯลฯ) ในรูปแบบ JSON
-- `/api/messages` จัดเก็บบทสนทนาในหน่วยความจำ และตอบเที่ยวกรุงเทพแบบละเอียด 510 จุดพร้อมลิงก์ Google Maps
+## 🔧 Configuration
 
-## หมายเหตุ
-- ระบบเก็บบทสนทนาในหน่วยความจำชั่วคราว (จะรีเซ็ตเมื่อรีสตาร์ทเซิร์ฟเวอร์)
-- ปรับแต่งค่าธีม สี และสำเนาตามดีไซน์เพิ่มเติมได้จากไฟล์ CSS/JS ตามหน้าที่
-- หากต้องการเชื่อมต่อ OpenAI สามารถต่อยอดใน `app.py` ภายหลังได้
+### Environment Variables
+
+| Variable | Required | Description |
+|----------|----------|-------------|
+| `TAT_API_KEY` | Yes | Tourism Authority of Thailand API key |
+| `OPENAI_API_KEY` | Yes | OpenAI API key for GPT-4 access |
+| `FLASK_ENV` | No | `development` or `production` (default: development) |
+| `PORT` | No | Server port (default: 5000) |
+
+### Intent Categories
+
+The system detects 6 types of user intents:
+
+1. **Attractions** - Tourist sites, landmarks, temples
+2. **Restaurants** - Food venues, cafes, dining
+3. **Accommodation** - Hotels, resorts, homestays
+4. **Events** - Festivals, activities, cultural events
+5. **Opening Hours** - Business hours queries
+6. **Transportation** - Travel directions, routes
+
+## 🌐 API Endpoints
+
+### POST `/api/messages`
+Send a chat message and receive AI response.
+
+## API
+
+### POST `/api/messages`
+```json
+{"text": "แนะนำที่พักสมุทรสงคราม"}
+```
+Returns AI text + structured place cards.
+
+### POST `/api/query`
+```json
+{"query": "ร้านอาหารอัมพวา", "language": "th"}
+```
+Returns response + intent + token count.
+
+## Usage
+
+```python
+from chat import get_chat_response
+
+result = get_chat_response("แนะนำที่เที่ยวอัมพวา")
+print(result['response'])
+for place in result['structured_data']:
+    print(f"📍 {place['place_name']}")
+```
+
+## 🔒 Security & Best Practices
+
+- API keys stored in `.env` file (never commit to git)
+- Input sanitization on all user queries
+- Rate limiting on API endpoints (recommended in production)
+- TAT data as single source of truth (prevents AI hallucination)
+
+## 🛠️ Technologies
+
+- **Backend**: Python 3.8+, Flask
+- **AI**: OpenAI GPT-4o
+- **Data Source**: TAT Open API
+- **Frontend**: Vanilla JavaScript, CSS3
+- **Authentication**: Firebase Auth
+- **Database**: Firebase Realtime Database
+
+## 📄 License
+
+This project uses:
+- TAT (Tourism Authority of Thailand) Open API - governed by TAT terms
+- OpenAI API - governed by OpenAI terms of service
+
+## 🤝 Contributing
+
+This is a demonstration project for Samut Songkhram tourism. For improvements:
+
+1. Test changes thoroughly with actual TAT API
+2. Ensure responses maintain accuracy with TAT data
+3. Update documentation for new features
+4. Follow existing code style and patterns
+
+## 📞 Support
+
+For TAT API issues: [TAT API Documentation](https://www.tatapi.tourismthailand.org/)  
+For OpenAI issues: [OpenAI Help Center](https://help.openai.com/)
+
+---
+
+Built with ❤️ for Samut Songkhram Province Tourism
+
+**Web API**:
+```bash
+curl -X POST http://localhost:5000/api/chat \
+  -H "Content-Type: application/json" \
+  -d '{"message": "Hello", "user_id": "user123"}'
+```
+
+## Customization
+
+To add more knowledge or modify responses, edit the `knowledge_base` in `chat.py`:
+
+```python
+self.knowledge_base = {
+    "your_topic": {
+        "th": "Thai response",
+        "en": "English response"
+    }
+}
+```
+
+## Bot Character
+
+**น้องปลาทู** (Nong Pla Tu) - A friendly local guide for Samutsongkhram province who knows all the best spots for tourism, food, and culture.
+
+---
+
+## Files
+
+- `app.py` – Flask server
+- `chat.py` – Chatbot logic
+- `gpt_service.py` – OpenAI integration
+- `tat_api.py` – TAT API client
+- `static/` – CSS/JS
+- `templates/` – HTML pages
+
+## License
+
+MIT
