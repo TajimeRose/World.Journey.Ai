@@ -64,10 +64,10 @@ class TravelChatbot:
         lines = []
         
         if language == "th":
-            lines.append("สวัสดีค่ะ! น้องปลาทูพร้อมให้บริการข้อมูลการท่องเที่ยวสมุทรสงครามค่ะ ✨\n")
+            lines.append("“น้องปลาทู” จะให้ข้อมูลได้ชัดเจนและครอบคลุม หากถามข้อมูลในจังหวัดสมุทรสงครามค่ะ ขออภัยด้วยนะคะ\n")
             lines.append(f"พบข้อมูลที่คุณสนใจ {len(tat_data)} รายการค่ะ คุณสามารถดูรายละเอียดเพิ่มเติมด้านล่างนะคะ:")
         else:
-            lines.append("Hello! I'm NongPlaToo, your Samut Songkhram travel guide ✨\n")
+            lines.append("Hello! I'm NongPlaToo, your Samut Songkhram travel guide \n")
             lines.append(f"I found {len(tat_data)} place(s) that might interest you. Check out the details below:")
 
         if language == "th":

@@ -8,30 +8,8 @@ from openai import OpenAI
 class GPTService:
     """Generate travel guidance using OpenAI + TAT data"""
     
-    SYSTEM_PROMPT = """You are a friendly and knowledgeable travel assistant specialized in Samut Songkhram Province, Thailand.
-Your name is "น้องปลาทู" (NongPlaToo).
-
-CRITICAL RULES:
-1. Use ONLY the verified data from the Tourism Authority of Thailand (TAT) provided below
-2. NEVER make up or assume details not found in the TAT data
-3. If information is missing from TAT data, politely say you don't have that specific information
-4. Paraphrase and summarize naturally - don't quote data directly
-5. Write in a conversational, friendly tone as if talking to a traveler
-6. Match the user's language (Thai or English)
-7. Be factually accurate - this is official tourism information
-
-When TAT data is provided:
-- Use it as your single source of truth
-- Organize information clearly and helpfully
-- Add context and travel tips based on the data
-- Suggest related places when relevant
-
-When no TAT data matches:
-- Apologize politely
-- Suggest asking about attractions, restaurants, accommodations, or events in Samut Songkhram
-- Never fabricate information
-
-Remember: You're helping real travelers make real plans. Accuracy matters."""
+    # System prompt removed per user request
+    SYSTEM_PROMPT = ""
 
     def __init__(self):
         self.api_key = os.getenv('OPENAI_API_KEY')
@@ -50,6 +28,133 @@ Remember: You're helping real travelers make real plans. Accuracy matters."""
                 print(f"[ERROR] OpenAI client init failed: {e}")
                 self.client = None
     
+    def _format_messages_for_input(self, messages: List[Dict[str, Any]]) -> List[Dict[str, Any]]:
+        """Convert legacy chat messages into the Responses API input format."""
+        formatted: List[Dict[str, Any]] = []
+        for message in messages:
+            role = message.get('role', 'user')
+            content = message.get('content', '')
+            parts: List[Dict[str, str]] = []
+
+            if isinstance(content, list):
+                for item in content:
+                    if isinstance(item, dict) and item.get('type'):
+                        parts.append(item)
+                    elif isinstance(item, dict) and 'text' in item:
+                        parts.append({
+                            'type': 'text',
+                            'text': str(item.get('text', ''))
+                        })
+                    else:
+                        parts.append({'type': 'text', 'text': str(item)})
+            else:
+                parts.append({'type': 'text', 'text': str(content or '')})
+
+            formatted.append({'role': role, 'content': parts})
+        return formatted
+
+    def _create_chat_completion(self, **kwargs):
+        """Call responses.create while preserving previous call signature compatibility."""
+        if not self.client:
+            raise RuntimeError("OpenAI client not initialized")
+
+        messages = kwargs.pop('messages', None)
+        if not messages:
+            raise ValueError("messages are required for OpenAI calls")
+
+        request_kwargs = dict(kwargs)
+        model = request_kwargs.pop('model', self.model_name)
+
+        max_completion = request_kwargs.pop('max_completion_tokens', None)
+        max_tokens = request_kwargs.pop('max_tokens', None)
+        if max_completion is not None:
+            request_kwargs['max_output_tokens'] = max_completion
+        elif max_tokens is not None:
+            request_kwargs['max_output_tokens'] = max_tokens
+
+        request_kwargs['model'] = model
+        request_kwargs['input'] = self._format_messages_for_input(messages)
+        return self.client.responses.create(**request_kwargs)
+
+    def _extract_response_text(self, response: Any) -> str:
+        """Extract plain text from a Responses API call (with chat.completions fallback)."""
+        if not response:
+            return ""
+
+        output_text = getattr(response, 'output_text', None)
+        if isinstance(output_text, str) and output_text.strip():
+            return output_text.strip()
+
+        text_chunks: List[str] = []
+
+        output_attr = getattr(response, 'output', None)
+        if output_attr:
+            for output_item in output_attr:
+                content_list = getattr(output_item, 'content', None) or []
+                for content_item in content_list:
+                    text_value = None
+                    if hasattr(content_item, 'text'):
+                        text_field = getattr(content_item, 'text')
+                        if isinstance(text_field, str):
+                            text_value = text_field
+                        else:
+                            text_value = getattr(text_field, 'value', None) or getattr(text_field, 'text', None)
+                    elif isinstance(content_item, dict):
+                        if isinstance(content_item.get('text'), dict):
+                            text_value = content_item['text'].get('value') or content_item['text'].get('text')
+                        elif isinstance(content_item.get('text'), str):
+                            text_value = content_item['text']
+                        elif content_item.get('type') == 'text':
+                            text_value = content_item.get('content') or content_item.get('value')
+                    elif isinstance(content_item, str):
+                        text_value = content_item
+
+                    if text_value:
+                        text_chunks.append(text_value)
+
+            if text_chunks:
+                return "\n".join(chunk for chunk in text_chunks if chunk).strip()
+
+        choices = getattr(response, 'choices', None)
+        if choices:
+            first_choice = choices[0]
+            message = getattr(first_choice, 'message', None)
+            if message:
+                content = getattr(message, 'content', '')
+                if isinstance(content, str):
+                    return content
+                if isinstance(content, list):
+                    combined = [str(part) for part in content if part]
+                    if combined:
+                        return "\n".join(combined)
+
+        response_dump = None
+        if hasattr(response, 'model_dump'):
+            try:
+                response_dump = response.model_dump()
+            except Exception:
+                response_dump = None
+        elif isinstance(response, dict):
+            response_dump = response
+
+        if isinstance(response_dump, dict):
+            outputs = response_dump.get('output') or response_dump.get('outputs')
+            if outputs:
+                text_chunks = []
+                for output_item in outputs:
+                    for content in output_item.get('content') or []:
+                        text = content.get('text')
+                        if isinstance(text, dict):
+                            value = text.get('value') or text.get('text')
+                        else:
+                            value = text
+                        if value:
+                            text_chunks.append(value)
+                if text_chunks:
+                    return "\n".join(text_chunks).strip()
+
+        return ""
+
     def _detect_language(self, text: str) -> str:
         thai_chars = sum(1 for ch in text if '\u0e00' <= ch <= '\u0e7f')
         return "th" if thai_chars > len(text) * 0.3 else "en"
@@ -143,19 +248,19 @@ Your question: {query}"""
                 user_message += f"\nDetected Intent: {intent}"
             user_message += f"\n\n{tat_context}"
             
-            response = self.client.chat.completions.create(
+            response = self._create_chat_completion(
                 model=self.model_name,
                 messages=[
                     {"role": "system", "content": self.SYSTEM_PROMPT},
                     {"role": "user", "content": user_message}
                 ],
                 temperature=0.7,
-                max_tokens=800,
+                max_completion_tokens=800,
                 presence_penalty=0.1,
                 frequency_penalty=0.1
             )
             
-            ai_response = response.choices[0].message.content
+            ai_response = self._extract_response_text(response)
             
             return {
                 'response': ai_response,
@@ -183,21 +288,20 @@ Your question: {query}"""
             return "Hello! I'm NongPlaToo, ready to help you plan your Samut Songkhram trip!"
         
         try:
-            prompt = "Generate a warm, friendly greeting as NongPlaToo, introducing yourself as a Samut Songkhram travel guide." + (
-                " Respond in Thai." if language == "th" else " Respond in English."
-            )
+            # user prompt removed per user request
+            prompt = ""
             
-            response = self.client.chat.completions.create(
+            response = self._create_chat_completion(
                 model=self.model_name,
                 messages=[
                     {"role": "system", "content": self.SYSTEM_PROMPT},
                     {"role": "user", "content": prompt}
                 ],
                 temperature=0.8,
-                max_tokens=150
+                max_completion_tokens=150
             )
             
-            greeting_text = response.choices[0].message.content or (
+            greeting_text = self._extract_response_text(response) or (
                 "สวัสดีค่ะ! น้องปลาทูพร้อมช่วยวางแผนการเที่ยวสมุทรสงครามให้คุณค่ะ"
                 if language == "th"
                 else "Hello! I'm NongPlaToo, ready to help you plan your Samut Songkhram trip!"
@@ -255,3 +359,5 @@ def test_gpt_service():
 
 if __name__ == "__main__":
     test_gpt_service()
+
+
