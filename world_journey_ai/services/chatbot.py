@@ -7,13 +7,13 @@ import os
 import unicodedata
 import hashlib
 import time
-from typing import Dict, List, TYPE_CHECKING
+from typing import Any, Dict, List, Optional, TYPE_CHECKING, Set, Tuple
 import re
 
-from .province_guides import PROVINCE_GUIDES, PROVINCE_SYNONYMS
-from .guides import build_bangkok_guides_html
-from .messages import MessageStore
-from .enhanced_knowledge import enhanced_knowledge, PlaceKnowledge
+from world_journey_ai.services.province_guides import PROVINCE_GUIDES, PROVINCE_SYNONYMS
+from world_journey_ai.services.guides import build_bangkok_guides_html
+from world_journey_ai.services.messages import MessageStore
+from world_journey_ai.services.enhanced_knowledge import enhanced_knowledge, PlaceKnowledge
 
 if TYPE_CHECKING:
     from openai import OpenAI
@@ -128,7 +128,128 @@ class BaseAIEngine:
                     self._openai_client = OpenAIClient(api_key=api_key)  # type: ignore
                 except Exception:
                     pass
+        self._openai_model = os.getenv("CHATBOT_OPENAI_MODEL") or os.getenv("OPENAI_MODEL") or "gpt-4o"
         self._province_aliases = self._build_province_aliases()
+
+    def _format_responses_messages(self, messages: List[Dict[str, Any]]) -> List[Dict[str, Any]]:
+        """Normalize legacy chat-completion messages for the Responses API."""
+        formatted: List[Dict[str, Any]] = []
+        for message in messages:
+            role = message.get("role", "user")
+            content = message.get("content", "")
+            parts: List[Dict[str, Any]] = []
+
+            if isinstance(content, list):
+                for item in content:
+                    if isinstance(item, dict) and item.get("type"):
+                        parts.append(item)
+                    elif isinstance(item, dict) and "text" in item:
+                        parts.append({"type": "text", "text": str(item.get("text", ""))})
+                    else:
+                        parts.append({"type": "text", "text": str(item)})
+            else:
+                parts.append({"type": "text", "text": str(content or "")})
+
+            formatted.append({"role": role, "content": parts})
+        return formatted
+
+    def _create_openai_response(
+        self,
+        *,
+        messages: List[Dict[str, Any]],
+        model: Optional[str] = None,
+        **kwargs: Any,
+    ):
+        if not self._openai_client:
+            raise RuntimeError("OpenAI client not initialized")
+
+        request_kwargs = dict(kwargs)
+        max_completion = request_kwargs.pop("max_completion_tokens", None)
+        max_tokens = request_kwargs.pop("max_tokens", None)
+        if max_completion is not None:
+            request_kwargs["max_output_tokens"] = max_completion
+        elif max_tokens is not None:
+            request_kwargs["max_output_tokens"] = max_tokens
+
+        request_kwargs["model"] = model or self._openai_model or "gpt-4o"
+        request_kwargs["input"] = self._format_responses_messages(messages)
+        return self._openai_client.responses.create(**request_kwargs)
+
+    def _extract_openai_text(self, response: Any) -> str:
+        """Extract the assistant text from a Responses API result."""
+        if not response:
+            return ""
+
+        output_text = getattr(response, "output_text", None)
+        if isinstance(output_text, str) and output_text.strip():
+            return output_text.strip()
+
+        text_chunks: List[str] = []
+        output_attr = getattr(response, "output", None)
+        if output_attr:
+            for output_item in output_attr:
+                content_list = getattr(output_item, "content", None) or []
+                for content_item in content_list:
+                    text_value = None
+                    if hasattr(content_item, "text"):
+                        text_field = getattr(content_item, "text")
+                        if isinstance(text_field, str):
+                            text_value = text_field
+                        else:
+                            text_value = getattr(text_field, "value", None) or getattr(text_field, "text", None)
+                    elif isinstance(content_item, dict):
+                        text_data = content_item.get("text")
+                        if isinstance(text_data, dict):
+                            text_value = text_data.get("value") or text_data.get("text")
+                        elif isinstance(text_data, str):
+                            text_value = text_data
+                    elif isinstance(content_item, str):
+                        text_value = content_item
+
+                    if text_value:
+                        text_chunks.append(text_value)
+            if text_chunks:
+                return "\n".join(chunk for chunk in text_chunks if chunk).strip()
+
+        choices = getattr(response, "choices", None)
+        if choices:
+            first_choice = choices[0]
+            message = getattr(first_choice, "message", None)
+            if message:
+                content = getattr(message, "content", "")
+                if isinstance(content, str):
+                    return content
+                if isinstance(content, list):
+                    combined = [str(part) for part in content if part]
+                    if combined:
+                        return "\n".join(combined)
+
+        response_dump = None
+        if hasattr(response, "model_dump"):
+            try:
+                response_dump = response.model_dump()
+            except Exception:
+                response_dump = None
+        elif isinstance(response, dict):
+            response_dump = response
+
+        if isinstance(response_dump, dict):
+            outputs = response_dump.get("output") or response_dump.get("outputs")
+            if outputs:
+                text_chunks = []
+                for item in outputs:
+                    for content in item.get("content") or []:
+                        text_data = content.get("text")
+                        if isinstance(text_data, dict):
+                            value = text_data.get("value") or text_data.get("text")
+                        else:
+                            value = text_data
+                        if value:
+                            text_chunks.append(value)
+                if text_chunks:
+                    return "\n".join(text_chunks).strip()
+
+        return ""
 
     def _get_ai_personality(self) -> Dict[str, str]:
         """Define the AI's core personality traits and behavior patterns"""
@@ -269,10 +390,10 @@ class BaseAIEngine:
     def append_user(self, text: str) -> Dict[str, object]:
         return self._store.add("user", text)
 
-    def append_assistant(self, text: str, *, html: str | None = None) -> Dict[str, object]:
+    def append_assistant(self, text: str, *, html: Optional[str] = None) -> Dict[str, object]:
         return self._store.add("assistant", text, html=html)
 
-    def _validate_and_preprocess_input(self, user_text: str) -> Dict[str, object] | None:
+    def _validate_and_preprocess_input(self, user_text: str) -> Optional[Dict[str, object]]:
         """Comprehensive input validation and preprocessing for 95% accuracy"""
         # Step 1: Basic validation
         if not isinstance(user_text, str):
@@ -419,7 +540,10 @@ class BaseAIEngine:
         return min(relevance, 1.0)
 
     def _get_system_prompt(self, *, lang: str = "th") -> str:
-        """Get enhanced system prompt with persistent role memory and context awareness"""
+        """Get enhanced system prompt with persistent role memory and context awareness
+        (removed prompts per user request)
+        """
+        return ""
         
         # Get personality and context from role memory
         personality = self._role_memory["personality"]
@@ -718,7 +842,7 @@ class BaseAIEngine:
         normalized_no_tone = self._normalize(query)
         
         results: List[Dict[str, str]] = []
-        scored_results: List[tuple[Dict[str, str], float]] = []
+        scored_results: List[Tuple[Dict[str, str], float]] = []
         
         for item in self._destinations:
             combined = " ".join([item["name"], item.get("city", ""), item.get("description", "")])
@@ -757,7 +881,7 @@ class BaseAIEngine:
         scored_results.sort(key=lambda x: x[1], reverse=True)
         return [item for item, score in scored_results[:10]]  # Top 10 matches
 
-    def _generate_ai_travel_response_enhanced(self, query: str, *, lang: str = "th", relevance_score: float = 1.0) -> Dict[str, object] | None:
+    def _generate_ai_travel_response_enhanced(self, query: str, *, lang: str = "th", relevance_score: float = 1.0) -> Optional[Dict[str, object]]:
         """Enhanced AI response generation with better error handling and validation"""
         if not self._openai_client:
             return {"success": False, "error": "AI not available"}
@@ -778,14 +902,8 @@ class BaseAIEngine:
             admin_context = self._detect_admin_level(corrected_query)
             
             # Create conversational user prompt
-            if lang == "en":
-                user_prompt = f"User asks: {corrected_query}\n\nPlease respond naturally and conversationally as น้องปลาทู, the friendly local guide from Samutsongkhram!"
-                if enhanced_context:
-                    user_prompt += f"\n\nAdditional context: {enhanced_context}"
-            else:
-                user_prompt = f"ผู้ใช้ถาม: {corrected_query}\n\nกรุณาตอบแบบเป็นกันเองและธรรมชาติในฐานะน้องปลาทู ไกด์ท้องถิ่นที่เป็นมิตรจากสมุทรสงคราม!"
-                if enhanced_context:
-                    user_prompt += f"\n\nข้อมูลเพิ่มเติม: {enhanced_context}"
+            # user prompts removed per user request
+            user_prompt = ""
 
             # Multiple attempts with different parameters
             max_retries = 3
@@ -794,18 +912,18 @@ class BaseAIEngine:
                     # Adjust temperature based on attempt
                     temperature = 0.3 + (attempt * 0.1)  # Increase creativity on retries
                     
-                    response = self._openai_client.chat.completions.create(
-                        model="gpt-4",
+                    response = self._create_openai_response(
+                        model=self._openai_model,
                         messages=[
                             {"role": "system", "content": system_prompt},
                             {"role": "user", "content": user_prompt},
                         ],
                         temperature=temperature,
-                        max_tokens=1200,  # Increased for enhanced responses with more details
+                        max_completion_tokens=1200,  # Increased for enhanced responses with more details
                         timeout=30,      # Timeout protection
                     )
 
-                    content = response.choices[0].message.content
+                    content = self._extract_openai_text(response)
                     
                     if not content:
                         continue  # Try again
@@ -828,7 +946,7 @@ class BaseAIEngine:
             print(f"Enhanced AI error: {e}")
             return {"success": False, "error": str(e)}
 
-    def _parse_ai_response_enhanced(self, content: str, original_query: str, lang: str) -> Dict[str, object] | None:
+    def _parse_ai_response_enhanced(self, content: str, original_query: str, lang: str) -> Optional[Dict[str, object]]:
         """Enhanced AI response parsing that handles both JSON and natural text responses"""
         try:
             # First, try to extract JSON from the response (for backward compatibility)
@@ -969,7 +1087,7 @@ class BaseAIEngine:
         cache_string = f"{normalized_query}_{lang}_{ai_mode}"
         return hashlib.md5(cache_string.encode('utf-8')).hexdigest()
 
-    def _get_cached_response(self, cache_key: str) -> Dict[str, object] | None:
+    def _get_cached_response(self, cache_key: str) -> Optional[Dict[str, object]]:
         """Get cached response if available and not expired"""
         current_time = time.time()
         
@@ -1145,7 +1263,7 @@ class BaseAIEngine:
 
     def _matches_bangkok(self, query: str) -> bool:
         """Check if query matches Bangkok keywords"""
-        from .destinations import BANGKOK_KEYWORDS
+        from world_journey_ai.services.destinations import BANGKOK_KEYWORDS
         normalized = self._normalize(query)
         return any(self._normalize(keyword) in normalized for keyword in BANGKOK_KEYWORDS)
 
@@ -1172,15 +1290,15 @@ class BaseAIEngine:
         This helps surface close local matches and avoid unnecessary AI calls.
         """
         from difflib import SequenceMatcher
-        from .province_guides import PROVINCE_SYNONYMS
+        from world_journey_ai.services.province_guides import PROVINCE_SYNONYMS
 
-        def token_set(text: str) -> set[str]:
+        def token_set(text: str) -> Set[str]:
             return {t for t in re.split(r"[^\w\u0E00-\u0E7F]+", text.lower()) if t}
 
         norm = self._normalize(query)
         q_tokens = token_set(query)
 
-        scored: List[tuple[Dict[str, str], float]] = []
+        scored: List[Tuple[Dict[str, str], float]] = []
         for item in self._destinations:
             # build candidate haystack variants (name, english_name, city, synonyms)
             parts = [item.get("name", ""), item.get("city", ""), item.get("description", "")]
@@ -1249,12 +1367,12 @@ class BaseAIEngine:
         return f"<div class=\"guide-response\">{''.join(cards)}</div>"
 
 
-    def _generate_ai_travel_response(self, query: str, *, lang: str = "th") -> Dict[str, object] | None:
+    def _generate_ai_travel_response(self, query: str, *, lang: str = "th") -> Optional[Dict[str, object]]:
         """Use OpenAI to generate a travel response for any location"""
         if not self._openai_client:
             return None
 
-        # Get the appropriate system prompt for this AI engine mode
+        # System prompt removed per user request
         system_prompt = self._get_system_prompt(lang=lang)
         
         # Auto-correct the query before sending to AI
@@ -1264,26 +1382,21 @@ class BaseAIEngine:
         admin_context = self._detect_admin_level(corrected_query)
         
         # Create user prompt based on language and admin context
-        if lang == "en":
-            user_prompt = f"List top-rated attractions/places in: {corrected_query}"
-        else:
-            if admin_context != "general":
-                user_prompt = f"แนะนำสถานที่ยอดนิยมที่มีรีวิวดีในระดับ{admin_context}: {corrected_query}"
-            else:
-                user_prompt = f"แนะนำสถานที่ยอดนิยมที่มีรีวิวดีใน: {corrected_query}"
+        # user prompts removed per user request
+        user_prompt = ""
 
         try:
-            response = self._openai_client.chat.completions.create(
-                model="gpt-4",
+            response = self._create_openai_response(
+                model=self._openai_model,
                 messages=[
                     {"role": "system", "content": system_prompt},
                     {"role": "user", "content": user_prompt},
                 ],
-                temperature=0.0,
-                max_tokens=600
+                temperature=0.7,
+                max_completion_tokens=800,
             )
 
-            content = response.choices[0].message.content
+            content = self._extract_openai_text(response)
             
             # Check if content is None
             if not content:
@@ -1385,7 +1498,7 @@ class BaseAIEngine:
     def list_since(self, since_iso: str) -> List[Dict[str, object]]:
         return self._store.since(since_iso)
 
-    def _resolve_province(self, text: str) -> str | None:
+    def _resolve_province(self, text: str) -> Optional[str]:
         normalized = self._normalize(text)
         # 1) Exact/substring match first (most reliable)
         for alias, province in self._province_aliases.items():
@@ -1394,7 +1507,7 @@ class BaseAIEngine:
 
         # 2) Fuzzy match with ambiguity guard
         if normalized and self._province_aliases:
-            scored: List[tuple[str, float]] = []
+            scored: List[Tuple[str, float]] = []
             for alias in self._province_aliases.keys():
                 distance = self._levenshtein_distance(normalized, alias)
                 max_len = max(len(normalized), len(alias)) or 1
@@ -1488,7 +1601,7 @@ class BaseAIEngine:
                 aliases[self._normalize(value)] = province
         return aliases
 
-    def _looks_travel_related(self, user_input: str, destinations: List[Dict[str, str]] | None = None) -> bool:
+    def _looks_travel_related(self, user_input: str, destinations: Optional[List[Dict[str, str]]] = None) -> bool:
         normalized = self._normalize(user_input)
         if any(keyword in normalized for keyword in self._normalized_keywords):
             return True
@@ -1935,6 +2048,8 @@ class ChatEngine(BaseAIEngine):
     
     def _get_system_prompt(self, *, lang: str = "th") -> str:
         """Return the system prompt for chat mode"""
+        # System prompt removed by user request
+        return ""
         if lang == "en":
             return """You are 'Platoo', a friendly and knowledgeable AI travel companion for Thailand with 95%+ accuracy guarantee.
 
@@ -2015,6 +2130,8 @@ class GuideEngine(BaseAIEngine):
     
     def _get_system_prompt(self, *, lang: str = "th") -> str:
         """Return the system prompt for guide mode"""
+        # System prompt removed by user request
+        return ""
         if lang == "en":
             return """You are a PROFESSIONAL Thai travel planning specialist with 95%+ accuracy guarantee and systematic approach.
 
@@ -2102,4 +2219,7 @@ VERIFICATION STANDARDS:
 # Keep ChatEngine as the legacy name for backward compatibility
 # This alias allows existing code to continue working
 ChatEngine = ChatEngine
+
+
+
 

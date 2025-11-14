@@ -105,6 +105,79 @@
     return 'ระบบ';
   }
 
+  function createPlaceCard(place) {
+    const card = document.createElement('div');
+    card.className = 'place-card';
+
+    const header = document.createElement('div');
+    header.className = 'place-card-header';
+
+    const title = document.createElement('h4');
+    title.className = 'place-card-title';
+    title.textContent = place.place_name || place.name || 'ไม่ระบุชื่อ';
+    header.appendChild(title);
+
+    // Handle location - can be string or object
+    const locationText = (() => {
+      if (typeof place.location === 'string') {
+        return place.location;
+      } else if (typeof place.location === 'object' && place.location !== null) {
+        // Handle nested location object
+        const district = place.location.district || '';
+        const province = place.location.province || '';
+        return [district, province].filter(Boolean).join(', ');
+      } else if (place.address) {
+        return typeof place.address === 'string' ? place.address : '';
+      }
+      return '';
+    })();
+
+    if (locationText) {
+      const location = document.createElement('div');
+      location.className = 'place-card-location';
+      location.innerHTML = `📍 ${locationText}`;
+      header.appendChild(location);
+    }
+
+    card.appendChild(header);
+
+    // Handle description - can be string or object
+    const descriptionText = (() => {
+      if (typeof place.description === 'string') {
+        return place.description;
+      } else if (typeof place.place_information === 'object' && place.place_information !== null) {
+        // Handle nested place_information object
+        return place.place_information.detail || '';
+      } else if (typeof place.place_information === 'string') {
+        return place.place_information;
+      }
+      return '';
+    })();
+
+    if (descriptionText) {
+      const desc = document.createElement('p');
+      desc.className = 'place-card-description';
+      desc.textContent = descriptionText;
+      card.appendChild(desc);
+    }
+
+    if (place.opening_hours) {
+      const hours = document.createElement('div');
+      hours.className = 'place-card-hours';
+      hours.innerHTML = `🕐 ${place.opening_hours}`;
+      card.appendChild(hours);
+    }
+
+    if (place.contact || place.mobile_phone) {
+      const contact = document.createElement('div');
+      contact.className = 'place-card-contact';
+      contact.innerHTML = `📞 ${place.contact || place.mobile_phone}`;
+      card.appendChild(contact);
+    }
+
+    return card;
+  }
+
   function createMessageNode(message) {
     const wrapper = document.createElement('div');
     wrapper.className = 'message-row';
@@ -157,6 +230,19 @@
       body.appendChild(p);
     }
     bubble.appendChild(body);
+
+    // Add structured data (place cards) if available
+    if (message.structured_data && Array.isArray(message.structured_data) && message.structured_data.length > 0) {
+      const placesContainer = document.createElement('div');
+      placesContainer.className = 'places-container';
+
+      message.structured_data.forEach(place => {
+        const placeCard = createPlaceCard(place);
+        placesContainer.appendChild(placeCard);
+      });
+
+      bubble.appendChild(placesContainer);
+    }
 
     wrapper.appendChild(bubble);
     return wrapper;

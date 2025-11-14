@@ -300,8 +300,8 @@ async function processAutomaticTrip() {
         interests.push(cb.value);
     });
 
-    // Create comprehensive prompt for AI
-    const prompt = `วางแผนทริป${destination} ${duration}วัน งบประมาณ${budget}บาท สนใจ${interests.join(', ')} ขอแผนละเอียดทั้งเส้นทาง ที่พัก อาหาร และค่าใช้จ่าย`;
+    // Prompts removed per user request
+    const prompt = '';
 
     // Show the result interface
     const resultContent = `
@@ -353,12 +353,11 @@ async function processAutomaticTrip() {
 // Start manual planning
 function startManualPlanning(type) {
     if (type === 'chat') {
-        const prompt = encodeURIComponent('สวัสดีครับ อยากขอคำแนะนำในการวางแผนทริปหน่อย');
-        window.location.href = `/chat?q=${prompt}`;
+        // Redirect to chat (no prompt query)
+        window.location.href = `/chat`;
     } else if (type === 'planner') {
-        // For now, redirect to chat with planner prompt
-        const prompt = encodeURIComponent('อยากใช้เครื่องมือวางแผนทริปที่มี AI ช่วยเหลือ');
-        window.location.href = `/chat?q=${prompt}`;
+        // Redirect to chat/planner (no prompt query)
+        window.location.href = `/chat`;
     }
 }
 

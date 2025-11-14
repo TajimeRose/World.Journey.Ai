@@ -67,12 +67,6 @@
         <h1 id="chat-title">พร้อมเป็นคู่คิดในการวางแผนการเดินทางของคุณ</h1>
         <p class="hero-subtitle">ถามเรื่องฤดูกาล เส้นทาง คาเฟ่ หรือกิจกรรมแบบที่คุณชอบ
           แล้วรับคำตอบที่เข้าใจง่ายทั้งภาษาไทยและอังกฤษ</p>
-        <div class="hero-chips">
-          <button type="button" class="quick-chip" data-quick-query="กรุงเทพ">กรุงเทพ</button>
-          <button type="button" class="quick-chip" data-quick-query="สมุทรสงคราม">สมุทรสงคราม</button>
-          <button type="button" class="quick-chip" data-quick-query="Bangkok foodie tour">Bangkok foodie tour</button>
-          <button type="button" class="quick-chip" data-quick-query="Kyoto autumn">Kyoto autumn</button>
-        </div>
       </header>
       <div id="chat-log" class="chat-log" role="log" aria-live="polite">
         <div id="empty-state" class="empty-state">
@@ -99,6 +93,10 @@
         </div>
         <input id="chatImageInput" type="file" class="visually-hidden" accept="image/*" capture="environment">
       </form>
+      <div class="chat-disclaimer">
+        <p>น้องปลาทูอาจให้ข้อมูลที่ไม่ถูกต้องได้ กรุณาตรวจสอบข้อมูลสำคัญอีกครั้ง</p>
+        <p class="disclaimer-en">AI may provide inaccurate information. Please verify important details.</p>
+      </div>
     </section>
   </main>
 
@@ -106,4 +104,3 @@
 </body>
 
 </html>
-<main class="chat-shell" role="main">
