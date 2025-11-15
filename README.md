@@ -1,11 +1,11 @@
 # World Journey AI – Samut Songkhram Tourism
 
-GPT + TAT API travel assistant for Samut Songkhram Province.
+GPT-powered travel assistant for Samut Songkhram Province.
 
 ## Features
 
 - **GPT-powered chat** (OPENAI_MODEL, default: gpt-5)
-- **TAT verified data** (Tourism Authority of Thailand)
+- **Curated local insights** (custom knowledge base)
 - **Intent detection** (attractions, restaurants, accommodation, events, etc.)
 - **Bilingual** (Thai/English)
 - **Place cards** (structured data + AI narrative)
@@ -19,7 +19,6 @@ GPT + TAT API travel assistant for Samut Songkhram Province.
 
 2. **Configure** `.env`:
    ```env
-   TAT_API_KEY=your_tat_key
    OPENAI_API_KEY=your_openai_key
    OPENAI_MODEL=gpt-4o
    ```
@@ -51,7 +50,6 @@ World.Journey.Ai/
 ├── app.py                    # Flask web server + API endpoints
 ├── chat.py                   # TravelChatbot orchestration
 ├── gpt_service.py            # GPT-4 integration service
-├── tat_api.py                # TAT API client + intent detection
 ├── requirements.txt          # Python dependencies
 ├── .env.example              # Environment template
 ├── static/
@@ -76,7 +74,6 @@ World.Journey.Ai/
 
 | Variable | Required | Description |
 |----------|----------|-------------|
-| `TAT_API_KEY` | Yes | Tourism Authority of Thailand API key |
 | `OPENAI_API_KEY` | Yes | OpenAI API key for GPT-4 access |
 | `FLASK_ENV` | No | `development` or `production` (default: development) |
 | `PORT` | No | Server port (default: 5000) |
@@ -127,35 +124,32 @@ for place in result['structured_data']:
 - API keys stored in `.env` file (never commit to git)
 - Input sanitization on all user queries
 - Rate limiting on API endpoints (recommended in production)
-- TAT data as single source of truth (prevents AI hallucination)
+- Local curated data as single source of truth (prevents AI hallucination)
 
 ## 🛠️ Technologies
 
 - **Backend**: Python 3.8+, Flask
 - **AI**: OpenAI GPT-4o
-- **Data Source**: TAT Open API
+- **Data Source**: Curated travel guides & local knowledge
 - **Frontend**: Vanilla JavaScript, CSS3
 - **Authentication**: Firebase Auth
 - **Database**: Firebase Realtime Database
 
 ## 📄 License
 
-This project uses:
-- TAT (Tourism Authority of Thailand) Open API - governed by TAT terms
-- OpenAI API - governed by OpenAI terms of service
+This project uses OpenAI API (governed by OpenAI terms of service)
 
 ## 🤝 Contributing
 
 This is a demonstration project for Samut Songkhram tourism. For improvements:
 
-1. Test changes thoroughly with actual TAT API
-2. Ensure responses maintain accuracy with TAT data
+1. Test changes thoroughly with representative travel prompts
+2. Ensure responses maintain accuracy with local data
 3. Update documentation for new features
 4. Follow existing code style and patterns
 
 ## 📞 Support
 
-For TAT API issues: [TAT API Documentation](https://www.tatapi.tourismthailand.org/)  
 For OpenAI issues: [OpenAI Help Center](https://help.openai.com/)
 
 ---
@@ -193,7 +187,6 @@ self.knowledge_base = {
 - `app.py` – Flask server
 - `chat.py` – Chatbot logic
 - `gpt_service.py` – OpenAI integration
-- `tat_api.py` – TAT API client
 - `static/` – CSS/JS
 - `templates/` – HTML pages
 
