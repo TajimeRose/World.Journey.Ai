@@ -1,15 +1,10 @@
 """GPT chatbot for Samut Songkhram tourism. OPENAI_MODEL (default: gpt-5)."""
 
-import random
+import json
+from pathlib import Path
 from typing import Any, Dict, List, Optional
 
-try:
-    from tat_api import TATAPIService
-    TAT_AVAILABLE = True
-except Exception as exc:
-    print(f"[WARN] TAT API import failed: {exc}")
-    TAT_AVAILABLE = False
-    TATAPIService = None
+from world_journey_ai.configs import PromptRepo
 
 try:
     from gpt_service import GPTService
@@ -19,26 +14,19 @@ except Exception as exc:
     GPT_AVAILABLE = False
     GPTService = None
 
+PROMPT_REPO = PromptRepo()
+CHATBOT_PROMPTS = PROMPT_REPO.get_prompt("chatbot/answer", default={})
+DATA_FILE = Path(__file__).resolve().parent / "world_journey_ai" / "data" / "travel_data.json"
+
 
 class TravelChatbot:
-    """Chatbot with TAT + configurable GPT"""
-
-    DEFAULT_PROVINCE = "สมุทรสงคราม"
+    """Chatbot powered solely by GPT (local data + prompts)."""
 
     def __init__(self) -> None:
         self.bot_name = "NongPlaToo"
-        self.tat_service: Optional[Any] = None
+        self.chatbot_prompts = CHATBOT_PROMPTS
         self.gpt_service: Optional[Any] = None
-
-        if TAT_AVAILABLE and TATAPIService is not None:
-            try:
-                self.tat_service = TATAPIService()
-                print("[OK] TAT API initialized")
-            except Exception as exc:
-                print(f"[ERROR] Cannot initialize TAT API: {exc}")
-                self.tat_service = None
-        else:
-            print("[WARN] TAT API unavailable")
+        self.travel_data = self._load_travel_data()
 
         if GPT_AVAILABLE and GPTService is not None:
             try:
@@ -55,36 +43,120 @@ class TravelChatbot:
         thai_chars = sum(1 for ch in text if "\u0e00" <= ch <= "\u0e7f")
         return "th" if thai_chars > max(1, len(text) // 3) else "en"
 
-    def _create_simple_response(self, tat_data: List[Dict], language: str) -> str:
-        if not tat_data:
-            if language == "th":
-                return "สวัสดีค่ะ! ขออภัยที่ตอนนี้ระบบ AI กำลังมีปัญหาชั่วคราว แต่น้องปลาทูยังพร้อมให้ข้อมูลการท่องเที่ยวสมุทรสงครามให้คุณนะคะ ลองถามเกี่ยวกับสถานที่ท่องเที่ยว ร้านอาหาร หรือที่พักในสมุทรสงครามได้เลยค่ะ"
-            return "Hello! I apologize for the temporary AI system issue, but I'm still ready to provide tourism information about Samut Songkhram. Feel free to ask about attractions, restaurants, or accommodations!"
+    def _load_travel_data(self) -> List[Dict[str, Any]]:
+        if not DATA_FILE.exists():
+            print(f"[WARN] Travel data file not found: {DATA_FILE}")
+            return []
+        try:
+            with open(DATA_FILE, "r", encoding="utf-8") as handle:
+                data = json.load(handle)
+                if isinstance(data, list):
+                    return data
+        except (json.JSONDecodeError, OSError) as exc:
+            print(f"[WARN] Cannot load travel data: {exc}")
+        return []
 
-        lines = []
-        
-        if language == "th":
-            lines.append("“น้องปลาทู” จะให้ข้อมูลได้ชัดเจนและครอบคลุม หากถามข้อมูลในจังหวัดสมุทรสงครามค่ะ ขออภัยด้วยนะคะ\n")
-            lines.append(f"พบข้อมูลที่คุณสนใจ {len(tat_data)} รายการค่ะ คุณสามารถดูรายละเอียดเพิ่มเติมด้านล่างนะคะ:")
-        else:
-            lines.append("Hello! I'm NongPlaToo, your Samut Songkhram travel guide \n")
-            lines.append(f"I found {len(tat_data)} place(s) that might interest you. Check out the details below:")
+    def _match_travel_data(self, query: str, limit: int = 5) -> List[Dict[str, Any]]:
+        if not self.travel_data:
+            return []
+        normalized = query.lower()
+        tokens = [tok for tok in normalized.split() if tok]
+        scored: List[tuple[Dict[str, Any], int]] = []
+        for entry in self.travel_data:
+            haystack = " ".join(
+                str(entry.get(field, "")).lower()
+                for field in ("name", "description", "city", "highlights")
+            )
+            score = 0
+            if normalized in haystack:
+                score += 3
+            for token in tokens:
+                if token in haystack:
+                    score += 1
+            if score > 0:
+                scored.append((entry, score))
+        scored.sort(key=lambda item: item[1], reverse=True)
+        matches = [item for item, _ in scored[:limit]]
+        if not matches:
+            return self.travel_data[:limit]
+        return matches
 
-        if language == "th":
-            lines.append("\nหากต้องการข้อมูลเพิ่มเติม สามารถถามเพิ่มได้เลยค่ะ 😊")
-        else:
-            lines.append("\nFeel free to ask for more information! 😊")
+    def _create_simple_response(self, context_data: List[Dict], language: str) -> str:
+        if not context_data:
+            return self._prompt_path(
+                language,
+                ("simple_response", "no_data"),
+                default_th=(
+                    "สวัสดีค่ะ! ขออภัยที่ตอนนี้ระบบ AI กำลังมีปัญหาชั่วคราว "
+                    "แต่น้องปลาทูยังพร้อมให้ข้อมูลการท่องเที่ยวสมุทรสงครามให้คุณนะคะ "
+                    "ลองถามเกี่ยวกับสถานที่ท่องเที่ยว ร้านอาหาร หรือที่พักในสมุทรสงครามได้เลยค่ะ"
+                ),
+                default_en=(
+                    "Hello! I apologize for the temporary AI system issue, but I'm still ready "
+                    "to provide tourism information about Samut Songkhram. Feel free to ask "
+                    "about attractions, restaurants, or accommodations!"
+                )
+            )
+        intro_template = self._prompt_path(
+            language,
+            ("simple_response", "intro"),
+            default_th=(
+                "“น้องปลาทู” จะให้ข้อมูลได้ชัดเจนและครอบคลุม หากถามข้อมูลในจังหวัดสมุทรสงครามค่ะ ขออภัยด้วยนะคะ\n\n"
+                "พบข้อมูลที่คุณสนใจ {count} รายการค่ะ คุณสามารถดูรายละเอียดเพิ่มเติมด้านล่างนะคะ:"
+            ),
+            default_en=(
+                "Hello! I'm NongPlaToo, your Samut Songkhram travel guide \n\n"
+                "I found {count} place(s) that might interest you. Check out the details below:"
+            )
+        )
+        outro = self._prompt_path(
+            language,
+            ("simple_response", "outro"),
+            default_th="\nหากต้องการข้อมูลเพิ่มเติม สามารถถามเพิ่มได้เลยค่ะ 😊",
+            default_en="\nFeel free to ask for more information! 😊"
+        )
+        return f"{intro_template.format(count=len(context_data))}{outro}"
 
-        return "\n".join(lines)
+    def _prompt(self, key: str, language: str, *, default_th: str = "", default_en: str = "") -> str:
+        return self._prompt_path(language, (key,), default_th=default_th, default_en=default_en)
+
+    def _prompt_path(
+        self,
+        language: str,
+        keys: tuple[str, ...],
+        *,
+        default_th: str = "",
+        default_en: str = ""
+    ) -> str:
+        default_value = default_th if language == "th" else default_en
+        node: Any = self.chatbot_prompts
+        for key in keys:
+            if not isinstance(node, dict):
+                node = None
+                break
+            node = node.get(key)
+        if isinstance(node, dict):
+            return node.get(language, default_value)
+        if isinstance(node, str):
+            return node
+        return default_value
 
     def get_response(self, user_message: str, user_id: str = "default") -> Dict[str, Any]:
         language = self._detect_language(user_message)
+        matched_data = self._match_travel_data(user_message)
+        data_status = {
+            'success': bool(matched_data),
+            'message': 'Matched local travel entries' if matched_data else 'No local entries matched',
+            'data_available': bool(matched_data),
+            'source': 'local_json'
+        }
 
         if not user_message.strip():
-            simple_msg = (
-                "กรุณาพิมพ์คำถามเกี่ยวกับการท่องเที่ยวในสมุทรสงครามนะคะ"
-                if language == "th"
-                else "Please share a travel question for Samut Songkhram."
+            simple_msg = self._prompt(
+                "empty_query",
+                language,
+                default_th="กรุณาพิมพ์คำถามเกี่ยวกับการท่องเที่ยวในสมุทรสงครามนะคะ",
+                default_en="Please share a travel question for Samut Songkhram."
             )
             return {
                 'response': simple_msg,
@@ -93,83 +165,47 @@ class TravelChatbot:
                 'source': 'empty_query'
             }
 
-        if not self.tat_service:
-            error_msg = (
-                "ขออภัยค่ะ ระบบข้อมูลยังไม่พร้อมในตอนนี้"
-                if language == "th"
-                else "Sorry, the travel data service is not available right now."
-            )
-            return {
-                'response': error_msg,
-                'structured_data': [],
-                'language': language,
-                'source': 'no_tat_service'
-            }
-
-        try:
-            tat_result = self.tat_service.search_by_intent(
-                user_message, 
-                self.DEFAULT_PROVINCE, 
-                limit=5
-            )
-            
-            tat_data = tat_result.get('data', [])
-            primary_intent = tat_result.get('primary_intent', 'attractions')
-            
-            print(f"[INFO] Intent: {primary_intent}, Found {len(tat_data)} TAT records")
-            
-        except Exception as e:
-            print(f"[ERROR] TAT search failed: {e}")
-            error_msg = (
-                "ขออภัยค่ะ เกิดข้อผิดพลาดในการค้นหาข้อมูล"
-                if language == "th"
-                else "Sorry, an error occurred while searching for information."
-            )
-            return {
-                'response': error_msg,
-                'structured_data': [],
-                'language': language,
-                'source': 'tat_error',
-                'error': str(e)
-            }
-
         if self.gpt_service:
             try:
                 gpt_result = self.gpt_service.generate_response(
                     user_query=user_message,
-                    tat_data=tat_data,
-                    data_type=primary_intent,
-                    intent=primary_intent
+                    context_data=matched_data,
+                    data_type='travel',
+                    intent='general',
+                    data_status=data_status
                 )
-                
+
                 return {
                     'response': gpt_result['response'],
-                    'structured_data': tat_data,
+                    'structured_data': matched_data,
                     'language': language,
                     'source': gpt_result.get('source', 'openai'),
-                    'intent': primary_intent,
-                    'tokens_used': gpt_result.get('tokens_used')
+                    'intent': 'general',
+                    'tokens_used': gpt_result.get('tokens_used'),
+                    'data_status': data_status
                 }
                 
             except Exception as e:
                 print(f"[ERROR] GPT generation failed: {e}")
-                simple_response = self._create_simple_response(tat_data, language)
+                simple_response = self._create_simple_response(matched_data, language)
                 return {
                     'response': simple_response,
-                    'structured_data': tat_data,
+                    'structured_data': matched_data,
                     'language': language,
                     'source': 'simple_fallback',
-                    'intent': primary_intent,
-                    'gpt_error': str(e)
+                    'intent': 'general',
+                    'gpt_error': str(e),
+                    'data_status': data_status
                 }
         else:
-            simple_response = self._create_simple_response(tat_data, language)
+            simple_response = self._create_simple_response(matched_data, language)
             return {
                 'response': simple_response,
-                'structured_data': tat_data,
+                'structured_data': matched_data,
                 'language': language,
                 'source': 'simple',
-                'intent': primary_intent
+                'intent': 'general',
+                'data_status': data_status
             }
 
 
@@ -207,7 +243,8 @@ if __name__ == "__main__":
         print(f"\nBot ({result['source']}): {result['response']}")
         
         if result.get('structured_data'):
-            print(f"\n[Found {len(result['structured_data'])} TAT records]")
+            print(f"\n[Structured items: {len(result['structured_data'])}]")
+
         
         if result.get('tokens_used'):
             print(f"[Tokens: {result['tokens_used']}]")

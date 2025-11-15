@@ -4,8 +4,8 @@ from flask import Flask, render_template, request, jsonify
 from flask_cors import CORS
 from chat import chat_with_bot, get_chat_response
 import datetime
-import os
 from dotenv import load_dotenv
+
 
 load_dotenv()
 
@@ -100,83 +100,33 @@ def post_message():
         result = get_chat_response(user_message, user_id)
         
         current_time = datetime.datetime.now().isoformat()
+        error_message = result.get('gpt_error') or result.get('error')
+        error_flag = bool(error_message)
         
-        return jsonify({
-            'success': True,
-            'assistant': {
-                'role': 'assistant',
-                'text': result['response'],
-                'structured_data': result.get('structured_data', []),
-                'language': result.get('language', 'th'),
-                'intent': result.get('intent'),
-                'source': result.get('source'),
-                'createdAt': current_time
-            }
-        })
+        assistant_payload = {
+            'role': 'assistant',
+            'text': result['response'],
+            'structured_data': result.get('structured_data', []),
+            'language': result.get('language', 'th'),
+            'intent': result.get('intent'),
+            'source': result.get('source'),
+            'createdAt': current_time,
+            'fallback': error_flag or result.get('source') in {'simple_fallback', 'simple'}
+        }
+        
+        response_payload = {
+            'success': not error_flag,
+            'error': error_flag,
+            'message': error_message,
+            'assistant': assistant_payload,
+            'data_status': result.get('data_status')
+        }
+        
+        return jsonify(response_payload)
     
     except Exception as e:
         print(f"[ERROR] /api/messages POST failed: {e}")
         return jsonify({'error': str(e)}), 500
-
-@app.route('/api/tat-data/<data_type>')
-def get_tat_data(data_type):
-    try:
-        from tat_api import TATAPIService
-        tat_service = TATAPIService()
-        
-        province = request.args.get('province', 'สมุทรสงคราม')
-        limit = int(request.args.get('limit', 10))
-        
-        if data_type == 'attractions':
-            data = tat_service.search_attractions(province, limit=limit)
-        elif data_type == 'accommodation':
-            data = tat_service.search_accommodations(province, limit=limit)
-        elif data_type == 'restaurants':
-            data = tat_service.search_restaurants(province, limit=limit)
-        elif data_type == 'events':
-            data = tat_service.search_events(province, limit=limit)
-        else:
-            return jsonify({'error': 'Invalid data type. Use: attractions, accommodation, restaurants, events'}), 400
-        
-        return jsonify({
-            'success': True,
-            'data': data,
-            'count': len(data),
-            'province': province,
-            'type': data_type
-        })
-        
-    except Exception as e:
-        return jsonify({'error': str(e)}), 500
-
-@app.route('/api/tat-test')
-def test_tat_connection():
-    try:
-        from tat_api import TATAPIService
-        tat_service = TATAPIService()
-        
-        if not tat_service.api_key:
-            return jsonify({
-                'success': False,
-                'message': 'TAT API key not configured. Please add TAT_API_KEY to your .env file',
-                'configured': False
-            })
-        
-        test_data = tat_service.search_attractions('สมุทรสงคราม', limit=1)
-        
-        return jsonify({
-            'success': True,
-            'message': 'TAT API connection successful',
-            'configured': True,
-            'test_result': len(test_data) > 0
-        })
-        
-    except Exception as e:
-        return jsonify({
-            'success': False,
-            'message': f'TAT API connection failed: {str(e)}',
-            'configured': False
-        })
 
 @app.route('/health')
 def health_check():

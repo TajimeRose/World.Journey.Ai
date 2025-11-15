@@ -15,6 +15,11 @@ from world_journey_ai.services.guides import build_bangkok_guides_html
 from world_journey_ai.services.messages import MessageStore
 from world_journey_ai.services.enhanced_knowledge import enhanced_knowledge, PlaceKnowledge
 
+from config_loader import get_config_value, get_prompts_config
+
+PROMPTS_CONFIG = get_prompts_config()
+WORLD_SYSTEM_PROMPTS = get_config_value(PROMPTS_CONFIG, "world_journey_ai", "system_prompts", default={})
+
 if TYPE_CHECKING:
     from openai import OpenAI
 
@@ -539,10 +544,8 @@ class BaseAIEngine:
         return min(relevance, 1.0)
 
     def _get_system_prompt(self, *, lang: str = "th") -> str:
-        """Get enhanced system prompt with persistent role memory and context awareness
-        (removed prompts per user request)
-        """
-        return ""
+        """Return configurable system prompt for base AI engine."""
+        return get_config_value(WORLD_SYSTEM_PROMPTS, "chat", lang, default="")
         
         # Get personality and context from role memory
         personality = self._role_memory["personality"]
@@ -2066,8 +2069,7 @@ class ChatEngine(BaseAIEngine):
     
     def _get_system_prompt(self, *, lang: str = "th") -> str:
         """Return the system prompt for chat mode"""
-        # System prompt removed by user request
-        return ""
+        return get_config_value(WORLD_SYSTEM_PROMPTS, "chat", lang, default="")
         if lang == "en":
             return """You are 'Platoo', a friendly and knowledgeable AI travel companion for Thailand with 95%+ accuracy guarantee.
 
@@ -2148,8 +2150,7 @@ class GuideEngine(BaseAIEngine):
     
     def _get_system_prompt(self, *, lang: str = "th") -> str:
         """Return the system prompt for guide mode"""
-        # System prompt removed by user request
-        return ""
+        return get_config_value(WORLD_SYSTEM_PROMPTS, "guide", lang, default="")
         if lang == "en":
             return """You are a PROFESSIONAL Thai travel planning specialist with 95%+ accuracy guarantee and systematic approach.
 

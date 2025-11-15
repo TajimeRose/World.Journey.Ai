@@ -1,5 +1,5 @@
 # Samut Songkhram Tourism Assistant Requirements
-# GPT-4 powered with TAT API integration
+# GPT-4 powered travel assistant
 
 # Core Framework
 flask>=2.3.0
@@ -8,7 +8,7 @@ flask-cors>=4.0.0
 # Environment Variables
 python-dotenv>=1.0.0
 
-# API requests for TAT integration
+# API requests for external APIs (if needed later)
 requests>=2.31.0
 
 # OpenAI GPT-4 Integration
