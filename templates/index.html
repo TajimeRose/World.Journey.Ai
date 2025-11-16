@@ -1,5 +1,6 @@
 <!doctype html>
 <html lang="th">
+
 <head>
   <!-- คอมเมนต์: ส่วน head ของหน้า ดึงไฟล์ CSS/JS และตั้งค่า meta; ระวังอย่าแก้ Jinja expressions -->
   <meta charset="utf-8">
@@ -15,15 +16,29 @@
   <script nomodule src="https://unpkg.com/@google/model-viewer/dist/model-viewer-legacy.js"></script>
   <style>
     /* Minimal landing model styles */
-    .landing-planet model-viewer { display: block; width: 100%; max-width: 360px; height: 360px; margin: 0 auto; background: transparent !important; }
-    .landing-planet { text-align: center; }
-    .landing-planet model-viewer { touch-action: none; }
+    .landing-planet model-viewer {
+      display: block;
+      width: 100%;
+      max-width: 360px;
+      height: 360px;
+      margin: 0 auto;
+      background: transparent !important;
+    }
+
+    .landing-planet {
+      text-align: center;
+    }
+
+    .landing-planet model-viewer {
+      touch-action: none;
+    }
   </style>
   <script src="/firebase_config.js"></script>
   <script type="module" src="{{ url_for('static', filename='js/firebase-init.js') }}"></script>
   <script src="{{ url_for('static', filename='js/auth-state.js') }}" defer></script>
   <script src="{{ url_for('static', filename='js/index.js') }}" defer></script>
 </head>
+
 <body>
   <!-- คอมเมนต์: โครงสร้างหลักของหน้า (site shell) -->
   <div class="site-shell">
@@ -32,20 +47,32 @@
       <nav class="navbar" aria-label="หลัก">
         <a class="brand" href="/">
           <span class="mark">AI</span>
-          <span>NongPlaToo.AI<br></span>
+          <span>NongPlaToo.AI</span>
         </a>
-        <div class="nav-links">
-          <a href="/">หน้าแรก</a>
-          <a href="/chat">สนทนากับน้องปลาทู</a>
-        </div>
-        <div class="nav-auth">
-          <div id="guestControls" class="nav-guest">
-            <a href="/login">เข้าสู่ระบบ</a>
+
+        <!-- Mobile menu button -->
+        <button class="mobile-menu-btn" type="button" aria-label="เปิดเมนู" aria-expanded="false">
+          <span class="hamburger"></span>
+          <span class="hamburger"></span>
+          <span class="hamburger"></span>
+        </button>
+
+        <!-- Navigation menu -->
+        <div class="nav-menu">
+          <div class="nav-links">
+            <a href="/" class="nav-link active">หน้าแรก</a>
+            <a href="/chat" class="nav-link">สนทนากับน้องปลาทู</a>
+            <a href="/guide" class="nav-link">คู่มือท่องเที่ยว</a>
           </div>
-          <div id="userControls" class="nav-user" hidden aria-live="polite">
-            <span id="userDisplayName" class="nav-user-name">ผู้ใช้งาน</span>
-            <span id="userEmail" class="nav-user-email"></span>
-            <button type="button" id="logoutButton" class="nav-logout">ออกจากระบบ</button>
+          <div class="nav-auth">
+            <div id="guestControls" class="nav-guest">
+              <a href="/login" class="nav-link">เข้าสู่ระบบ</a>
+            </div>
+            <div id="userControls" class="nav-user" hidden aria-live="polite">
+              <span id="userDisplayName" class="nav-user-name">ผู้ใช้งาน</span>
+              <span id="userEmail" class="nav-user-email"></span>
+              <button type="button" id="logoutButton" class="nav-logout">ออกจากระบบ</button>
+            </div>
           </div>
         </div>
       </nav>
@@ -54,33 +81,41 @@
     <main class="hero-shell" role="main">
       <section class="landing" aria-labelledby="landing-title">
         <div class="landing-planet" role="presentation">
-          <model-viewer src="{{ url_for('static', filename='models/earth_and_clouds.glb') }}" alt="โลก 3D" loading="eager" reveal="auto" auto-rotate rotation-per-second="12deg" disable-zoom disable-pan disable-tap exposure="1" interaction-prompt="none" style="display:block; width:100%; max-width:360px; height:360px; margin:0 auto; background:transparent;" aria-label="โลก 3 มิติ - World Journey AI">
+          <model-viewer src="{{ url_for('static', filename='models/earth_and_clouds.glb') }}" alt="โลก 3D"
+            loading="eager" reveal="auto" auto-rotate rotation-per-second="12deg" disable-zoom disable-pan disable-tap
+            exposure="1" interaction-prompt="none"
+            style="display:block; width:100%; max-width:360px; height:360px; margin:0 auto; background:transparent;"
+            aria-label="โลก 3 มิติ - World Journey AI">
             <noscript><img src="{{ url_for('static', filename='img/globe.png') }}" alt="โลกหมุน"></noscript>
           </model-viewer>
         </div>
         <header class="landing-header">
           <p class="landing-kicker">INTELLIGENT TRAVEL PUBLICITY</p>
           <h1 id="landing-title">ค้นหาจุดหมายแล้วให้ AI น้องปลาทูดูแลแผนการเดินทางของคุณ</h1>
-          <p class="landing-subtitle">พูด พิมพ์ หรือแนบภาพสถานที่ที่อยากจะไป เราจะบอกและแนะนคุณเอง</p>
+          <p class="landing-subtitle">พูด หรือ พิมพ์สถานที่ที่อยากจะไป เราจะบอกและแนะนำคุณเอง</p>
         </header>
         <form id="journey-form" class="search-form" autocomplete="off" role="search">
           <label class="visually-hidden" for="destination-input">ค้นหาสถานที่ท่องเที่ยว</label>
           <div class="search-input-group">
-            <input id="destination-input" name="destination" type="text" placeholder="พิมพ์ชื่อสถานที่ เช่น กรุงเทพ, ญี่ปุ่น, ปารีส..." aria-label="พิมพ์ชื่อสถานที่" required>
+            <input id="destination-input" name="destination" type="text" placeholder="มีอะไรให้น้องปลาทูช่วยไหมคะ?"
+              aria-label="พิมพ์ชื่อสถานที่" required>
             <button type="button" id="mic-button" class="search-button mic" aria-label="เริ่มฟังเสียง">🎙️</button>
             <button type="submit" id="search-button" class="search-button submit" aria-label="ค้นหา">ค้นหา</button>
           </div>
-          <div class="search-addons">
-            <label for="imageInput" class="file-trigger">แนบรูปสถานที่ที่อยากไป</label>
-            <input id="imageInput" class="visually-hidden" type="file" accept="image/*" capture="environment" aria-label="เลือกภาพประกอบแรงบันดาลใจ">
-            <span id="imagePreview" class="file-name" aria-live="polite">ยังไม่ได้เลือกไฟล์</span>
-          </div>
         </form>
-        <div id="toast" class="toast" role="status" aria-live="polite"></div>
+        <div id="face-detector" class="visually-hidden" aria-hidden="true" hidden>
+          <video id="fd-video" autoplay playsinline muted></video>
+          <canvas id="fd-canvas"></canvas>
+        </div>
       </section>
     </main>
     <!-- คอมเมนต์: footer ของเว็บ -->
-    <footer class="footer">© 2025 NongPlaToo.AI. พร้อมเดินทางไปทั่วโลกกับคุณ</footer>
+    <footer class="footer">© 2025 NongPlaToo.AI. สาขาวิชาเทคโนโลยีธุรกิจดิจิทัล วิทยาลัยเทคนิคสมุทรสงคราม </footer>
+  </div>
+  <div id="mascot" aria-live="polite">
+    <img src="{{ url_for('static', filename='img/Mascot2.png') }}" alt="มาสคอตน้องปลาทู" />
+    <div id="speech" class="is-hidden">สวัสดีค่ะ</div>
   </div>
 </body>
+
 </html>

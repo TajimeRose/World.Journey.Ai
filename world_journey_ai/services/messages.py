@@ -1,50 +1,25 @@
-﻿from __future__ import annotations
-
-from collections import deque
-from datetime import datetime, timezone
-from typing import Deque, Dict, List, Optional
+"""Minimal in-memory MessageStore used by chatbot during development/tests."""
+from typing import List, Dict, Optional
+import time
 
 
 class MessageStore:
-    def __init__(self, limit: int) -> None:
-        self._messages: Deque[Dict[str, object]] = deque(maxlen=limit)
+    def __init__(self) -> None:
+        self._messages: List[Dict[str, object]] = []
 
-    def add(self, role: str, text: str, *, html: Optional[str] = None) -> Dict[str, object]:
-        entry: Dict[str, object] = {
+    def add(self, role: str, text: str, html: Optional[str] = None) -> Dict[str, object]:
+        item = {
             "role": role,
             "text": text,
-            "createdAt": self._now_iso(),
+            "html": html,
+            "timestamp": time.time()
         }
-        if html:
-            entry["html"] = html
-        self._messages.append(entry)
-        return entry
+        self._messages.append(item)
+        return item
 
     def list(self) -> List[Dict[str, object]]:
         return list(self._messages)
 
     def since(self, since_iso: str) -> List[Dict[str, object]]:
-        try:
-            since_dt = datetime.fromisoformat(since_iso)
-            if since_dt.tzinfo is None:
-                since_dt = since_dt.replace(tzinfo=timezone.utc)
-        except ValueError:
-            return self.list()
-
-        filtered: List[Dict[str, object]] = []
-        for message in self._messages:
-            created_raw = message.get("createdAt")
-            try:
-                created = datetime.fromisoformat(str(created_raw))
-            except (TypeError, ValueError):
-                filtered.append(message)
-                continue
-            if created.tzinfo is None:
-                created = created.replace(tzinfo=timezone.utc)
-            if created > since_dt:
-                filtered.append(message)
-        return filtered
-
-    @staticmethod
-    def _now_iso() -> str:
-        return datetime.now(timezone.utc).isoformat()
+        # Very simple stub: return all messages
+        return list(self._messages)

@@ -1,8 +1,31 @@
-﻿flask
-flask-cors
+# Samut Songkhram Tourism Assistant Requirements
+# GPT-4 powered travel assistant
+
+# Core Framework
+flask>=2.3.0
+flask-cors>=4.0.0
+
 gunicorn
-requests
-openai
-firebase-admin
-python-dotenv
-pymongo
+
+# Environment Variables
+python-dotenv>=1.0.0
+
+# API requests for external APIs (if needed later)
+requests>=2.31.0
+
+# OpenAI GPT-4 Integration
+openai >= 1.35.0
+
+# Semantic Search (optional but enables FlexibleMatcher)
+numpy>=1.24.0
+scikit-learn>=1.3.0
+sentence-transformers>=2.2.2
+
+# Camera & Vision Tooling
+opencv-python
+python-osc
+onnxruntime
+opencv-contrib-python
+pyvirtualcam>=1.4.0 
+
+sentence-transformers>=2.2.2

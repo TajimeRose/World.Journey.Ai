@@ -1,0 +1,8 @@
+{
+  "response_style": "balanced",
+  "tone": "friendly and encouraging",
+  "format": "paragraph_with_highlights",
+  "language_priority": "mirror_user",
+  "include_highlights": true,
+  "call_to_action": "Suggest next steps or nearby spots when helpful."
+}

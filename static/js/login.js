@@ -36,7 +36,10 @@
   }
 
   function clearErrors() {
-    if (generalError) generalError.textContent = '';
+    if (generalError) {
+      generalError.textContent = '';
+      generalError.classList.remove('success');
+    }
     form?.querySelectorAll('.form-error[data-error-for]').forEach((node) => {
       node.textContent = '';
     });
@@ -128,23 +131,51 @@
     try {
       if (currentMode === 'login') {
         await signInWithEmailAndPassword(auth, email, password);
+        // Redirect to index page after successful login
+        window.location.replace('/');
       } else {
         const credential = await createUserWithEmailAndPassword(auth, email, password);
         await saveDisplayName(credential.user, displayName);
+
+        // Show success message for registration
+        if (generalError) {
+          generalError.classList.add('success');
+          generalError.textContent = 'สมัครสมาชิกสำเร็จ! กำลังนำคุณไปหน้าแรก...';
+        }
+
+        // Update submit button text
+        if (submitLabel) {
+          submitLabel.textContent = 'กำลังเข้าสู่ระบบ...';
+        }
+
+        // Small delay to show success message, then redirect to index page
+        setTimeout(() => {
+          window.location.replace('/');
+        }, 1500);
+
+        // Don't re-enable the button since we're redirecting
+        return;
       }
+<<<<<<< HEAD
       if (currentMode === 'signup') {
         window.location.replace('/index.html');
       } else {
         window.location.replace('/');
       }
+=======
+>>>>>>> aec3ab6eac1513195f6db8e913f685ff409f7e33
     } catch (error) {
       const message = mapError(error);
       if (generalError) {
         generalError.textContent = message;
+        generalError.classList.remove('success');
       }
     } finally {
-      submitButton.disabled = false;
-      submitButton.removeAttribute('aria-busy');
+      // Only re-enable button if we're not redirecting
+      if (currentMode !== 'signup' || !generalError?.classList.contains('success')) {
+        submitButton.disabled = false;
+        submitButton.removeAttribute('aria-busy');
+      }
     }
   }
 

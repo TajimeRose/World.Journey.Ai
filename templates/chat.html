@@ -1,5 +1,6 @@
 <!doctype html>
 <html lang="th">
+
 <head>
   <!-- หัวเว็บ: meta, stylesheet และสคริปต์ที่จำเป็น -->
   <meta charset="utf-8">
@@ -16,26 +17,39 @@
   <script src="{{ url_for('static', filename='js/auth-state.js') }}" defer></script>
   <script src="{{ url_for('static', filename='js/chat.js') }}" defer></script>
 </head>
+
 <body>
   <!-- header / navbar -->
   <div class="site-header">
     <nav class="navbar" aria-label="หลัก">
       <a class="brand" href="/">
         <span class="mark">AI</span>
-        <span>NongPlaToo..AI<br></span>
+        <span>NongPlaToo.AI</span>
       </a>
-      <div class="nav-links">
-        <a href="/">หน้าแรก</a>
-        <a href="/chat">สนทนากับน้องปลาทู</a>
-      </div>
-      <div class="nav-auth">
-        <div id="guestControls" class="nav-guest">
-          <a href="/login">เข้าสู่ระบบ</a>
+
+      <!-- Mobile menu button -->
+      <button class="mobile-menu-btn" type="button" aria-label="เปิดเมนู" aria-expanded="false">
+        <span class="hamburger"></span>
+        <span class="hamburger"></span>
+        <span class="hamburger"></span>
+      </button>
+
+      <!-- Navigation menu -->
+      <div class="nav-menu">
+        <div class="nav-links">
+          <a href="/" class="nav-link">หน้าแรก</a>
+          <a href="/chat" class="nav-link active">สนทนากับน้องปลาทู</a>
+          <a href="/guide" class="nav-link">คู่มือท่องเที่ยว</a>
         </div>
-        <div id="userControls" class="nav-user" hidden aria-live="polite">
-          <span id="userDisplayName" class="nav-user-name">ผู้ใช้งาน</span>
-          <span id="userEmail" class="nav-user-email"></span>
-          <button type="button" id="logoutButton" class="nav-logout">ออกจากระบบ</button>
+        <div class="nav-auth">
+          <div id="guestControls" class="nav-guest">
+            <a href="/login" class="nav-link">เข้าสู่ระบบ</a>
+          </div>
+          <div id="userControls" class="nav-user" hidden aria-live="polite">
+            <span id="userDisplayName" class="nav-user-name">ผู้ใช้งาน</span>
+            <span id="userEmail" class="nav-user-email"></span>
+            <button type="button" id="logoutButton" class="nav-logout">ออกจากระบบ</button>
+          </div>
         </div>
       </div>
     </nav>
@@ -51,13 +65,8 @@
       <header class="chat-hero">
         <p class="hero-kicker">AI น้องปลาทู</p>
         <h1 id="chat-title">พร้อมเป็นคู่คิดในการวางแผนการเดินทางของคุณ</h1>
-        <p class="hero-subtitle">ถามเรื่องฤดูกาล เส้นทาง คาเฟ่ หรือกิจกรรมแบบที่คุณชอบ แล้วรับคำตอบที่เข้าใจง่ายทั้งภาษาไทยและอังกฤษ</p>
-        <div class="hero-chips">
-          <button type="button" class="quick-chip" data-quick-query="กรุงเทพ">กรุงเทพ</button>
-          <button type="button" class="quick-chip" data-quick-query="สมุทรสงคราม">สมุทรสงคราม</button>
-          <button type="button" class="quick-chip" data-quick-query="Bangkok foodie tour">Bangkok foodie tour</button>
-          <button type="button" class="quick-chip" data-quick-query="Kyoto autumn">Kyoto autumn</button>
-        </div>
+        <p class="hero-subtitle">ถามเรื่องฤดูกาล เส้นทาง คาเฟ่ หรือกิจกรรมแบบที่คุณชอบ
+          แล้วรับคำตอบที่เข้าใจง่ายทั้งภาษาไทยและอังกฤษ</p>
       </header>
       <div id="chat-log" class="chat-log" role="log" aria-live="polite">
         <div id="empty-state" class="empty-state">
@@ -65,10 +74,17 @@
           <p>พิมพ์ชื่อเมืองหรือสไตล์การท่องเที่ยวที่อยากได้ เช่น "กรุงเทพ 3 วัน" หรือแตะตัวอย่างด้านบน</p>
         </div>
         <div id="messages" class="message-list"></div>
+        <button id="scroll-to-bottom" class="scroll-to-bottom-btn hidden" aria-label="เลื่อนไปด้านล่าง"
+          title="ข้อความใหม่">
+          <svg width="20" height="20" viewBox="0 0 20 20" fill="none" xmlns="http://www.w3.org/2000/svg">
+            <path d="M10 14L5 9L6.4 7.6L10 11.2L13.6 7.6L15 9L10 14Z" fill="currentColor" />
+          </svg>
+        </button>
       </div>
       <form id="composer" class="chat-composer" autocomplete="off">
         <label class="visually-hidden" for="chat-input">พิมพ์ข้อความถึงน้องปลาทู</label>
-        <input id="chat-input" type="text" autocomplete="off" placeholder="พิมพ์หรือพูดสิ่งที่อยากรู้ เช่น กรุงเทพ 3 วัน 2 คืน" aria-label="ข้อความถึงน้องปลาทู">
+        <input id="chat-input" type="text" autocomplete="off"
+          placeholder="พิมพ์หรือพูดสิ่งที่อยากรู้ เช่น กรุงเทพ 3 วัน 2 คืน" aria-label="ข้อความถึงน้องปลาทู">
         <div class="composer-actions">
           <button type="button" id="mic-button" class="composer-button" aria-label="เริ่มฟังเสียง">🎤</button>
           <label for="chatImageInput" class="composer-button file-button" aria-label="แนบรูปแรงบันดาลใจ">📎</label>
@@ -77,11 +93,14 @@
         </div>
         <input id="chatImageInput" type="file" class="visually-hidden" accept="image/*" capture="environment">
       </form>
+      <div class="chat-disclaimer">
+        <p>น้องปลาทูอาจให้ข้อมูลที่ไม่ถูกต้องได้ กรุณาตรวจสอบข้อมูลสำคัญอีกครั้ง</p>
+        <p class="disclaimer-en">AI may provide inaccurate information. Please verify important details.</p>
+      </div>
     </section>
   </main>
 
   <div id="toast-region" class="toast-region" aria-live="assertive" aria-atomic="true"></div>
 </body>
-</html>
-    <main class="chat-shell" role="main">
 
+</html>

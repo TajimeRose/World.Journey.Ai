@@ -137,7 +137,7 @@ class BaseAIEngine:
         self._province_aliases = self._build_province_aliases()
 
     def _format_responses_messages(self, messages: List[Dict[str, Any]]) -> List[Dict[str, Any]]:
-        """Normalize legacy chat-completion messages for the Responses API."""
+        """Normalize messages for the Responses API."""
         formatted: List[Dict[str, Any]] = []
         for message in messages:
             role = message.get("role", "user")
@@ -158,15 +158,14 @@ class BaseAIEngine:
             formatted.append({"role": role, "content": parts})
         return formatted
 
-    def _create_openai_response(
-        self,
-        *,
-        messages: List[Dict[str, Any]],
-        model: Optional[str] = None,
-        **kwargs: Any,
-    ):
+    def _chat_completion(self, **kwargs):
+        """Call OpenAI responses API with compatibility for legacy kwargs."""
         if not self._openai_client:
-            raise RuntimeError("OpenAI client not initialized")
+            raise RuntimeError('OpenAI client not initialized')
+
+        messages = kwargs.pop("messages", None)
+        if not messages:
+            raise ValueError("messages are required for OpenAI calls")
 
         request_kwargs = dict(kwargs)
         max_completion = request_kwargs.pop("max_completion_tokens", None)
@@ -176,12 +175,12 @@ class BaseAIEngine:
         elif max_tokens is not None:
             request_kwargs["max_output_tokens"] = max_tokens
 
-        request_kwargs["model"] = model or self._openai_model or "gpt-4o"
         request_kwargs["input"] = self._format_responses_messages(messages)
+        request_kwargs["model"] = request_kwargs.get("model", self._openai_model)
         return self._openai_client.responses.create(**request_kwargs)
 
-    def _extract_openai_text(self, response: Any) -> str:
-        """Extract the assistant text from a Responses API result."""
+    def _extract_response_text(self, response: Any) -> str:
+        """Extract plain text content from a Responses API response."""
         if not response:
             return ""
 
@@ -242,8 +241,8 @@ class BaseAIEngine:
             outputs = response_dump.get("output") or response_dump.get("outputs")
             if outputs:
                 text_chunks = []
-                for item in outputs:
-                    for content in item.get("content") or []:
+                for output_item in outputs:
+                    for content in output_item.get("content") or []:
                         text_data = content.get("text")
                         if isinstance(text_data, dict):
                             value = text_data.get("value") or text_data.get("text")
@@ -904,9 +903,21 @@ class BaseAIEngine:
             corrected_query = self._auto_correct_query(query)
             admin_context = self._detect_admin_level(corrected_query)
             
-            # Create conversational user prompt
-            # user prompts removed per user request
-            user_prompt = ""
+            # Build conversational user prompt from real user context
+            user_prompt_parts = [
+                f"Original question:\\n{query.strip()}",
+                f"Corrected question:\\n{corrected_query}",
+                f"Relevance score: {relevance_score:.2f}",
+            ]
+            if admin_context:
+                user_prompt_parts.append(f"Administrative context:\\n{admin_context}")
+            if enhanced_context:
+                user_prompt_parts.append(f"Enhanced knowledge context:\\n{enhanced_context}")
+            user_prompt_parts.append(
+                "Provide structured travel guidance matching the system instructions and honoring the user's language."
+            )
+            user_prompt_parts.append("ตอบเป็นภาษาไทย" if lang == "th" else "Respond in English.")
+            user_prompt = "\n\n".join(part for part in user_prompt_parts if part)
 
             # Multiple attempts with different parameters
             max_retries = 3
@@ -915,7 +926,7 @@ class BaseAIEngine:
                     # Adjust temperature based on attempt
                     temperature = 0.3 + (attempt * 0.1)  # Increase creativity on retries
                     
-                    response = self._create_openai_response(
+                    response = self._chat_completion(
                         model=self._openai_model,
                         messages=[
                             {"role": "system", "content": system_prompt},
@@ -926,7 +937,7 @@ class BaseAIEngine:
                         timeout=30,      # Timeout protection
                     )
 
-                    content = self._extract_openai_text(response)
+                    content = self._extract_response_text(response)
                     
                     if not content:
                         continue  # Try again
@@ -1385,21 +1396,28 @@ class BaseAIEngine:
         admin_context = self._detect_admin_level(corrected_query)
         
         # Create user prompt based on language and admin context
-        # user prompts removed per user request
-        user_prompt = ""
+        user_prompt_parts = [
+            f"Original question:\\n{query.strip()}",
+            f"Corrected question:\\n{corrected_query}",
+        ]
+        if admin_context:
+            user_prompt_parts.append(f"Administrative context:\\n{admin_context}")
+        user_prompt_parts.append("Provide structured travel guidance as described in the system instructions.")
+        user_prompt_parts.append("ตอบเป็นภาษาไทย" if lang == "th" else "Respond in English.")
+        user_prompt = "\n\n".join(part for part in user_prompt_parts if part)
 
         try:
-            response = self._create_openai_response(
+            response = self._chat_completion(
                 model=self._openai_model,
                 messages=[
                     {"role": "system", "content": system_prompt},
                     {"role": "user", "content": user_prompt},
                 ],
-                temperature=0.7,
-                max_completion_tokens=800,
+                temperature=0.0,
+                max_completion_tokens=600
             )
 
-            content = self._extract_openai_text(response)
+            content = self._extract_response_text(response)
             
             # Check if content is None
             if not content:
@@ -2220,6 +2238,7 @@ VERIFICATION STANDARDS:
 # Keep ChatEngine as the legacy name for backward compatibility
 # This alias allows existing code to continue working
 ChatEngine = ChatEngine
+
 
 
 

@@ -53,3 +53,24 @@ test_*.py
 tmp/
 temp/
 *.tmp
+
+# --- Legal / Sensitive Documents ---
+*license*
+*LICENSE*
+*legal*
+*LEGAL*
+*contract*
+*CONTRACT*
+*agreement*
+*AGREEMENT*
+*terms*
+*TERMS*
+*privacy*
+*PRIVACY*
+*confidential*
+*CONFIDENTIAL*
+*.doc
+*.docx
+*.pdf
+*_internal*
+*_private*

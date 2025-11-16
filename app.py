@@ -1,31 +1,158 @@
-﻿# ใช้ factory function เพื่อสร้าง Flask app และตั้งค่า (เช่น CORS, services)
-from world_journey_ai import create_app
+﻿"""Flask app for Samut Songkhram tourism. GPT (OPENAI_MODEL, default: gpt-5)."""
+
+from flask import Flask, render_template, request, jsonify
+from flask_cors import CORS
+from chat import chat_with_bot, get_chat_response
+from face_detection import detect_faces_from_base64
 import datetime
-
-# สร้างแอปจาก factory (CORS ถูกตั้งค่าแล้วใน create_app)
-app = create_app()
+from dotenv import load_dotenv
 
 
-# ชั่วคราว: สร้าง document ตัวอย่างใน MongoDB เพื่อให้ฐานข้อมูล/collection ถูกสร้างอัตโนมัติ
-@app.get("/mongo-test")
-def mongo_test_root():
-    events = app.extensions.get("mongo_events")
-    if events is None:
-        return {"ok": False, "error": "mongo not configured"}, 500
+load_dotenv()
 
+app = Flask(__name__)
+CORS(app)
+
+@app.route('/')
+def index():
+    return render_template('index.html')
+
+@app.route('/chat')
+def chat_page():
+    return render_template('chat.html')
+
+@app.route('/guide')
+def guide_page():
+    return render_template('guide.html')
+
+@app.route('/login')
+def login_page():
+    return render_template('login.html')
+
+@app.route('/api/query', methods=['POST'])
+def api_query():
     try:
-        events.insert_one({
-            "uid": "test",
-            "event": "test_event",
-            "created_at": datetime.datetime.utcnow(),
+        data = request.get_json()
+        if not data or 'message' not in data:
+            return jsonify({'error': 'Message is required'}), 400
+        
+        user_message = data['message']
+        user_id = data.get('user_id', 'default')
+        
+        result = get_chat_response(user_message, user_id)
+        
+        return jsonify({
+            'success': True,
+            'response': result['response'],
+            'structured_data': result.get('structured_data', []),
+            'language': result.get('language', 'th'),
+            'intent': result.get('intent'),
+            'source': result.get('source'),
+            'tokens_used': result.get('tokens_used'),
+            'timestamp': datetime.datetime.now().isoformat()
         })
-    except Exception as exc:
-        return {"ok": False, "error": str(exc)}, 500
+    
+    except Exception as e:
+        print(f"[ERROR] /api/query failed: {e}")
+        return jsonify({'error': str(e)}), 500
 
-    return {"ok": True}
 
+@app.route('/api/chat', methods=['POST'])
+def api_chat():
+    try:
+        data = request.get_json()
+        if not data or 'message' not in data:
+            return jsonify({'error': 'Message is required'}), 400
+        
+        user_message = data['message']
+        user_id = data.get('user_id', 'default')
+        
+        bot_response = chat_with_bot(user_message, user_id)
+        
+        return jsonify({
+            'success': True,
+            'response': bot_response,
+            'timestamp': datetime.datetime.now().isoformat()
+        })
+    
+    except Exception as e:
+        return jsonify({'error': str(e)}), 500
+
+@app.route('/api/messages', methods=['GET'])
+def get_messages():
+    try:
+        return jsonify({
+            'success': True,
+            'messages': []
+        })
+    except Exception as e:
+        return jsonify({'error': str(e)}), 500
+
+@app.route('/api/messages', methods=['POST'])
+def post_message():
+    try:
+        data = request.get_json()
+        if not data or 'text' not in data:
+            return jsonify({'error': 'Text is required'}), 400
+        
+        user_message = data['text']
+        user_id = data.get('user_id', 'default')
+        
+        result = get_chat_response(user_message, user_id)
+        
+        current_time = datetime.datetime.now().isoformat()
+        error_message = result.get('gpt_error') or result.get('error')
+        error_flag = bool(error_message)
+        
+        assistant_payload = {
+            'role': 'assistant',
+            'text': result['response'],
+            'structured_data': result.get('structured_data', []),
+            'language': result.get('language', 'th'),
+            'intent': result.get('intent'),
+            'source': result.get('source'),
+            'createdAt': current_time,
+            'fallback': error_flag or result.get('source') in {'simple_fallback', 'simple'}
+        }
+        
+        response_payload = {
+            'success': not error_flag,
+            'error': error_flag,
+            'message': error_message,
+            'assistant': assistant_payload,
+            'data_status': result.get('data_status')
+        }
+        
+        return jsonify(response_payload)
+    
+    except Exception as e:
+        print(f"[ERROR] /api/messages POST failed: {e}")
+        return jsonify({'error': str(e)}), 500
+
+
+@app.route('/api/face-detect', methods=['POST'])
+def api_face_detect():
+    try:
+        data = request.get_json(silent=True) or {}
+        image_b64 = data.get('image')
+        if not image_b64:
+            return jsonify({'success': False, 'error': 'Image data is required'}), 400
+
+        detection = detect_faces_from_base64(image_b64)
+        return jsonify({'success': True, **detection})
+
+    except ValueError as err:
+        return jsonify({'success': False, 'error': str(err)}), 400
+    except Exception as err:
+        print(f"[ERROR] /api/face-detect failed: {err}")
+        return jsonify({'success': False, 'error': 'Face detection failed'}), 500
+
+@app.route('/health')
+def health_check():
+    return jsonify({'status': 'healthy', 'timestamp': datetime.datetime.now().isoformat()})
 
 if __name__ == '__main__':
-    # รันเซิร์ฟเวอร์แบบ development
-    app.run(debug=True)
+    print("🚀 Samut Songkhram Travel Assistant (GPT model: OPENAI_MODEL or gpt-5)")
+    print("📍 http://localhost:5000")
+    app.run(debug=True, host='0.0.0.0', port=5000)
 
