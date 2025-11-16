@@ -23,7 +23,6 @@ sentence-transformers>=2.2.2
 
 # Camera & Vision Tooling
 opencv-python
-mediapipe
 python-osc
 onnxruntime
 opencv-contrib-python
