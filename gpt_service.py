@@ -2,6 +2,7 @@
 
 from __future__ import annotations
 
+import json
 import os
 from typing import Any, Dict, List, Optional
 
@@ -25,6 +26,7 @@ class GPTService:
         self.system_prompts = system_data.get("default", {})
         self.answer_prompts = PROMPT_REPO.get_prompt("chatbot/answer", default={})
         self.search_prompts = PROMPT_REPO.get_prompt("chatbot/search", default={})
+        self.preferences = PROMPT_REPO.get_preferences()
         self.temperature = chat_params.get("temperature", 0.7)
         self.max_completion_tokens = chat_params.get("max_completion_tokens", 800)
         self.top_p = chat_params.get("top_p", 1.0)
@@ -68,12 +70,15 @@ class GPTService:
         try:
             data_context = self._format_context_data(context_data, data_type)
             status_note = self._build_context_status_note(data_status, bool(context_data))
+            preference_note = self._build_preference_note()
 
             user_parts = [f"User Query: {user_query}"]
             if intent:
                 user_parts.append(f"Detected Intent: {intent}")
             if status_note:
                 user_parts.append(status_note)
+            if preference_note:
+                user_parts.append(preference_note)
             user_parts.append(data_context)
             user_message = "\n\n".join(part for part in user_parts if part)
 
@@ -232,6 +237,19 @@ class GPTService:
         )
         return template.format(reason=reason)
 
+    def _build_preference_note(self) -> str:
+        prefs = self.preferences or {}
+        components = []
+        if tone := prefs.get("tone"):
+            components.append(f"Respond with tone: {tone}")
+        if style := prefs.get("response_style"):
+            components.append(f"Style: {style}")
+        if format_hint := prefs.get("format"):
+            components.append(f"Format focus: {format_hint}")
+        if cta := prefs.get("call_to_action"):
+            components.append(cta)
+        return " | ".join(components)
+
     def _build_fallback_payload(
         self,
         language: str,
@@ -260,6 +278,47 @@ class GPTService:
                 "Sorry, the AI system is currently unavailable.\n\nPlease try again later. Here is your question for reference: {query}",
             )
         return template.format(query=query)
+
+    def extract_query_entities(self, query: str, dataset_summary: str) -> Dict[str, List[str]]:
+        """Use GPT to extract keywords/places that should match local data."""
+        if not self.client:
+            return {"keywords": [], "places": []}
+
+        prompt = (
+            "You are a travel data matcher for Samut Songkhram.\n"
+            "Dataset entries:\n"
+            f"{dataset_summary}\n\n"
+            "Analyze the user's question and return JSON with two arrays:\n"
+            "- keywords: important search words or synonyms\n"
+            "- places: names from the dataset that likely match\n"
+            "Respond with JSON only."
+        )
+
+        try:
+            response = self._create_chat_completion(
+                model=self.model_name,
+                messages=[
+                    {"role": "system", "content": "Extract concise travel keywords from the user query."},
+                    {"role": "user", "content": f"{prompt}\n\nUser query:\n{query}"},
+                ],
+                temperature=0.0,
+                max_completion_tokens=200,
+                top_p=1.0,
+            )
+            content = self._safe_extract_content(response)
+            if not content:
+                return {"keywords": [], "places": []}
+            start = content.find("{")
+            end = content.rfind("}") + 1
+            if start >= 0 and end > start:
+                parsed = json.loads(content[start:end])
+                return {
+                    "keywords": parsed.get("keywords", []),
+                    "places": parsed.get("places", []),
+                }
+        except Exception as exc:
+            print(f"[WARN] Keyword extraction failed: {exc}")
+        return {"keywords": [], "places": []}
 
     def _system_prompt(self, language: str) -> str:
         if language == "th":

@@ -1,0 +1,10 @@
+{
+  "matching": {
+    "max_matches": 5,
+    "strict_only": true,
+    "use_ai_keywords": true
+  },
+  "fallback": {
+    "show_table_when_no_match": false
+  }
+}
