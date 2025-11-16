@@ -1256,6 +1256,13 @@ a:focus {
     margin-bottom: 0.35rem;
 }
 
+.place-card-summary {
+    margin: 0.5rem 0;
+    font-size: 0.9rem;
+    line-height: 1.5;
+    color: #111111;
+}
+
 .place-card-description {
     margin: 0.75rem 0;
     font-size: 0.9rem;

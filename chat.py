@@ -1,6 +1,7 @@
 """GPT chatbot for Samut Songkhram tourism. OPENAI_MODEL (default: gpt-5)."""
 
 import json
+import re
 from pathlib import Path
 from typing import Any, Dict, List, Optional
 
@@ -16,6 +17,10 @@ except Exception as exc:
 
 PROMPT_REPO = PromptRepo()
 DATA_FILE = Path(__file__).resolve().parent / "world_journey_ai" / "data" / "travel_data.json"
+LOCAL_KEYWORDS = PROMPT_REPO.get_prompt("chatbot/local_terms", default=[
+    "สมุทรสงคราม",
+    "samut songkhram"
+])
 
 
 class TravelChatbot:
@@ -30,6 +35,7 @@ class TravelChatbot:
         self.gpt_service: Optional[Any] = None
         self.travel_data = self._load_travel_data()
         self.dataset_summary = self._build_dataset_summary()
+        self.local_reference_terms = self._build_local_reference_terms()
 
         if GPT_AVAILABLE and GPTService is not None:
             try:
@@ -70,6 +76,15 @@ class TravelChatbot:
             lines.append(f"- {name} | city: {city} | type: {entry_type}")
         return "\n".join(lines[:50])
 
+    def _build_local_reference_terms(self) -> List[str]:
+        terms = {term.lower() for term in LOCAL_KEYWORDS}
+        for entry in self.travel_data:
+            for key in ("name", "place_name", "city", "type", "category"):
+                value = entry.get(key)
+                if isinstance(value, str):
+                    terms.add(value.lower())
+        return list(terms)
+
     def _interpret_query_keywords(self, query: str) -> Dict[str, List[str]]:
         if not self.gpt_service or not self.dataset_summary:
             return {"keywords": [], "places": []}
@@ -107,6 +122,30 @@ class TravelChatbot:
         if not scored:
             return []
         return [item for item, _ in scored[:limit]]
+
+    def _contains_local_reference(self, text: str) -> bool:
+        lowered = text.lower()
+        return any(term in lowered for term in self.local_reference_terms)
+
+    def _mentions_other_province(self, query: str, keyword_pool: List[str], places: List[str]) -> bool:
+        normalized = query.lower()
+        province_match = re.search(r'จังหวัด\s*([^\s,.;!?]+)', normalized)
+        if province_match:
+            name = province_match.group(1)
+            if not self._contains_local_reference(name):
+                return True
+
+        for candidate in places:
+            candidate_str = str(candidate).lower()
+            if candidate_str and not self._contains_local_reference(candidate_str):
+                return True
+
+        for keyword in keyword_pool:
+            kw = str(keyword).lower()
+            if kw and "จังหวัด" in kw and not self._contains_local_reference(kw):
+                return True
+
+        return False
 
     def _refresh_settings(self) -> None:
         self.chatbot_prompts = PROMPT_REPO.get_prompt("chatbot/answer", default=self.chatbot_prompts)
@@ -194,6 +233,13 @@ class TravelChatbot:
         keyword_pool = (analysis.get("keywords") or []) + (analysis.get("places") or [])
         matched_data = self._match_travel_data(user_message, keywords=keyword_pool)
         preference_note = self._preference_context()
+        includes_local_term = self._contains_local_reference(user_message)
+        if not includes_local_term:
+            includes_local_term = any(self._contains_local_reference(str(keyword)) for keyword in keyword_pool)
+        mentions_other_province = (
+            not includes_local_term
+            and self._mentions_other_province(user_message, keyword_pool, analysis.get("places", []))
+        )
         data_status = {
             'success': bool(matched_data),
             'message': (
@@ -205,6 +251,23 @@ class TravelChatbot:
             'source': 'local_json',
             'preference_note': preference_note
         }
+
+        if mentions_other_province:
+            warning_message = (
+                "น้องปลาทูจะให้ข้อมูลได้ชัดเจนและครอบคลุม หากถามข้อมูลในจังหวัดสมุทรสงครามค่ะ ขออภัยด้วยนะคะ"
+            )
+            return {
+                'response': warning_message,
+                'structured_data': [],
+                'language': language,
+                'source': 'out_of_scope',
+                'intent': 'general',
+                'data_status': {
+                    **data_status,
+                    'message': 'Out of supported province scope',
+                    'data_available': False
+                }
+            }
 
         if not user_message.strip():
             simple_msg = self._prompt(
