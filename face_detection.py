@@ -1,11 +1,4 @@
-"""Minimal face detection helper built on OpenCV only.
-
-The previous implementation used MediaPipe when available and fell back to a
-Haar cascade otherwise. Render currently provisions Python 3.13, which does not
-have MediaPipe wheels, so relying on MediaPipe prevents deployment. This module
-now focuses on OpenCV-based detection exclusively while preserving the same
-public API (`detect_faces_from_base64`) used by the Flask route.
-"""
+"""Minimal face detection helper built on OpenCV Haar cascades only."""
 
 from __future__ import annotations
 
@@ -78,12 +71,15 @@ def detect_faces_from_base64(image_b64: str) -> Dict[str, object]:
     gray = cv2.cvtColor(frame, cv2.COLOR_BGR2GRAY)
     detector = _get_haar_detector()
 
-    detections: List[tuple[int, int, int, int]] = detector.detectMultiScale(
+    raw_detections = detector.detectMultiScale(
         gray,
         scaleFactor=1.1,
         minNeighbors=6,
         minSize=(60, 60),
     )
+    detections: List[tuple[int, int, int, int]] = [
+        (int(x), int(y), int(w), int(h)) for (x, y, w, h) in raw_detections
+    ]
 
     faces = [
         {
