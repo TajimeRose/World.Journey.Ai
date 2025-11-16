@@ -105,18 +105,63 @@
     return 'ระบบ';
   }
 
+  function sanitizeAssistantText(message) {
+    if (
+      message.role !== 'assistant' ||
+      !message.structured_data ||
+      !Array.isArray(message.structured_data) ||
+      message.structured_data.length === 0 ||
+      !message.text
+    ) {
+      return message.text || '';
+    }
+
+    const paragraphs = message.text.split('\n').filter(Boolean);
+    if (paragraphs.length === 0) return message.text;
+
+    const overviewLines = [];
+    for (const line of paragraphs) {
+      if (line.includes('**') || line.trim().startsWith('- ')) break;
+      overviewLines.push(line);
+    }
+
+    const baseText =
+      overviewLines.length > 0 ? overviewLines.join(' ') : paragraphs[0];
+
+    const lowerPlaceNames = message.structured_data
+      .map((place) => (place.place_name || place.name || '').toLowerCase())
+      .filter(Boolean);
+
+    const sentences = baseText
+      .split(/(?<=[.!?])\s+|(?<=[。！？])/)
+      .map((sentence) => sentence.trim())
+      .filter(Boolean);
+
+    const filteredSentences = [];
+    for (const sentence of sentences) {
+      const lowerSentence = sentence.toLowerCase();
+      const mentionsPlace = lowerPlaceNames.some((name) =>
+        name ? lowerSentence.includes(name) : false
+      );
+      if (mentionsPlace) continue;
+      filteredSentences.push(sentence);
+      if (filteredSentences.length >= 3) break;
+    }
+
+    if (filteredSentences.length > 0) {
+      return filteredSentences.join(' ');
+    }
+    return sentences.length > 0 ? sentences[0] : baseText;
+  }
+
   function createPlaceCard(place) {
     const card = document.createElement('div');
     card.className = 'place-card';
 
-    const header = document.createElement('div');
-    header.className = 'place-card-header';
-
     const title = document.createElement('h4');
     title.className = 'place-card-title';
-    const placeName = place.place_name || place.name || 'ไม่ระบุชื่อ';
-    title.textContent = placeName;
-    header.appendChild(title);
+    title.textContent = place.place_name || place.name || 'ไม่ระบุชื่อ';
+    card.appendChild(title);
 
     const typeText = place.type
       || place.category
@@ -125,16 +170,14 @@
     if (typeText) {
       const typeLabel = document.createElement('div');
       typeLabel.className = 'place-card-type';
-      typeLabel.innerHTML = `<strong>- ประเภทสถานที่:</strong> ${typeText}`;
-      header.appendChild(typeLabel);
+      typeLabel.innerHTML = `<strong>ประเภทสถานที่:</strong> ${typeText}`;
+      card.appendChild(typeLabel);
     }
 
-    // Handle location - can be string or object
     const locationText = (() => {
       if (typeof place.location === 'string') {
         return place.location;
       } else if (typeof place.location === 'object' && place.location !== null) {
-        // Handle nested location object
         const district = place.location.district || '';
         const province = place.location.province || '';
         return [district, province].filter(Boolean).join(', ');
@@ -147,18 +190,14 @@
     if (locationText) {
       const location = document.createElement('div');
       location.className = 'place-card-location';
-      location.innerHTML = `<strong>- ที่ตั้ง:</strong> ${locationText}`;
-      header.appendChild(location);
+      location.innerHTML = `<strong>ที่ตั้ง:</strong> ${locationText}`;
+      card.appendChild(location);
     }
 
-    card.appendChild(header);
-
-    // Handle description - can be string or object
     const descriptionText = (() => {
       if (typeof place.description === 'string') {
         return place.description;
       } else if (typeof place.place_information === 'object' && place.place_information !== null) {
-        // Handle nested place_information object
         return place.place_information.detail || '';
       } else if (typeof place.place_information === 'string') {
         return place.place_information;
@@ -170,20 +209,20 @@
       const candidate =
         place.short_description ||
         place.summary ||
-        descriptionText ||
-        (place.highlight ? place.highlight.join(', ') : '');
+        (Array.isArray(place.highlights) ? place.highlights.join(', ') : '') ||
+        descriptionText;
       if (!candidate) return '';
-      if (candidate.length > 280) {
-        return `${candidate.slice(0, 277)}...`;
+      if (candidate.length > 320) {
+        return `${candidate.slice(0, 317)}...`;
       }
       return candidate;
     })();
 
     if (shortDescription) {
-      const desc = document.createElement('p');
-      desc.className = 'place-card-description';
-      desc.innerHTML = `<strong>- คำอธิบายย่อ:</strong> ${shortDescription}`;
-      card.appendChild(desc);
+      const summary = document.createElement('p');
+      summary.className = 'place-card-summary';
+      summary.innerHTML = `<strong>คำอธิบายย่อ:</strong> ${shortDescription}`;
+      card.appendChild(summary);
     }
 
     const fullDescription =
@@ -281,11 +320,16 @@
 
     const body = document.createElement('div');
     body.className = 'message-body';
+    let displayText = message.text;
+    if (message.role === 'assistant') {
+      displayText = sanitizeAssistantText(message);
+    }
+
     if (message.html) {
       body.innerHTML = message.html;
-    } else if (message.text) {
+    } else if (displayText) {
       const p = document.createElement('p');
-      p.textContent = message.text;
+      p.textContent = displayText;
       body.appendChild(p);
     }
     bubble.appendChild(body);
