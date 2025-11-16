@@ -92,28 +92,29 @@
         <header class="landing-header">
           <p class="landing-kicker">INTELLIGENT TRAVEL PUBLICITY</p>
           <h1 id="landing-title">ค้นหาจุดหมายแล้วให้ AI น้องปลาทูดูแลแผนการเดินทางของคุณ</h1>
-          <p class="landing-subtitle">พูด พิมพ์ หรือแนบภาพสถานที่ที่อยากจะไป เราจะบอกและแนะนคุณเอง</p>
+          <p class="landing-subtitle">พูด หรือ พิมพ์สถานที่ที่อยากจะไป เราจะบอกและแนะนำคุณเอง</p>
         </header>
         <form id="journey-form" class="search-form" autocomplete="off" role="search">
           <label class="visually-hidden" for="destination-input">ค้นหาสถานที่ท่องเที่ยว</label>
           <div class="search-input-group">
-            <input id="destination-input" name="destination" type="text"
-              placeholder="พิมพ์ชื่อสถานที่ เช่น กรุงเทพ, ญี่ปุ่น, ปารีส..." aria-label="พิมพ์ชื่อสถานที่" required>
+            <input id="destination-input" name="destination" type="text" placeholder="มีอะไรให้น้องปลาทูช่วยไหมคะ?"
+              aria-label="พิมพ์ชื่อสถานที่" required>
             <button type="button" id="mic-button" class="search-button mic" aria-label="เริ่มฟังเสียง">🎙️</button>
             <button type="submit" id="search-button" class="search-button submit" aria-label="ค้นหา">ค้นหา</button>
           </div>
-          <div class="search-addons">
-            <label for="imageInput" class="file-trigger">แนบรูปสถานที่ที่อยากไป</label>
-            <input id="imageInput" class="visually-hidden" type="file" accept="image/*" capture="environment"
-              aria-label="เลือกภาพประกอบแรงบันดาลใจ">
-            <span id="imagePreview" class="file-name" aria-live="polite">ยังไม่ได้เลือกไฟล์</span>
-          </div>
         </form>
-        <div id="toast" class="toast" role="status" aria-live="polite"></div>
+        <div id="face-detector" class="visually-hidden" aria-hidden="true" hidden>
+          <video id="fd-video" autoplay playsinline muted></video>
+          <canvas id="fd-canvas"></canvas>
+        </div>
       </section>
     </main>
     <!-- คอมเมนต์: footer ของเว็บ -->
     <footer class="footer">© 2025 NongPlaToo.AI. สาขาวิชาเทคโนโลยีธุรกิจดิจิทัล วิทยาลัยเทคนิคสมุทรสงคราม </footer>
+  </div>
+  <div id="mascot" aria-live="polite">
+    <img src="{{ url_for('static', filename='img/Mascot2.png') }}" alt="มาสคอตน้องปลาทู" />
+    <div id="speech" class="is-hidden">สวัสดีค่ะ</div>
   </div>
 </body>
 
