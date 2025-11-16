@@ -3,6 +3,7 @@
 from flask import Flask, render_template, request, jsonify
 from flask_cors import CORS
 from chat import chat_with_bot, get_chat_response
+from face_detection import detect_faces_from_base64
 import datetime
 from dotenv import load_dotenv
 
@@ -127,6 +128,25 @@ def post_message():
     except Exception as e:
         print(f"[ERROR] /api/messages POST failed: {e}")
         return jsonify({'error': str(e)}), 500
+
+@app.route('/api/face-detect', methods=['POST'])
+def api_face_detect():
+    try:
+        data = request.get_json()
+        if not data or 'image' not in data:
+            return jsonify({'success': False, 'error': 'Image is required'}), 400
+
+        detection = detect_faces_from_base64(data['image'])
+        detection['success'] = True
+        detection['timestamp'] = datetime.datetime.now().isoformat()
+        return jsonify(detection)
+
+    except ValueError as exc:
+        return jsonify({'success': False, 'error': str(exc)}), 400
+    except Exception as exc:
+        print(f"[ERROR] /api/face-detect failed: {exc}")
+        return jsonify({'success': False, 'error': 'Face detection failed'}), 500
+
 
 @app.route('/health')
 def health_check():
