@@ -27,5 +27,5 @@ mediapipe
 python-osc
 onnxruntime
 opencv-contrib-python
-pyvirtualcam
+pyvirtualcam>=1.4.0 
 
