@@ -129,24 +129,23 @@ def post_message():
         print(f"[ERROR] /api/messages POST failed: {e}")
         return jsonify({'error': str(e)}), 500
 
+
 @app.route('/api/face-detect', methods=['POST'])
 def api_face_detect():
     try:
-        data = request.get_json()
-        if not data or 'image' not in data:
-            return jsonify({'success': False, 'error': 'Image is required'}), 400
+        data = request.get_json(silent=True) or {}
+        image_b64 = data.get('image')
+        if not image_b64:
+            return jsonify({'success': False, 'error': 'Image data is required'}), 400
 
-        detection = detect_faces_from_base64(data['image'])
-        detection['success'] = True
-        detection['timestamp'] = datetime.datetime.now().isoformat()
-        return jsonify(detection)
+        detection = detect_faces_from_base64(image_b64)
+        return jsonify({'success': True, **detection})
 
-    except ValueError as exc:
-        return jsonify({'success': False, 'error': str(exc)}), 400
-    except Exception as exc:
-        print(f"[ERROR] /api/face-detect failed: {exc}")
+    except ValueError as err:
+        return jsonify({'success': False, 'error': str(err)}), 400
+    except Exception as err:
+        print(f"[ERROR] /api/face-detect failed: {err}")
         return jsonify({'success': False, 'error': 'Face detection failed'}), 500
-
 
 @app.route('/health')
 def health_check():
