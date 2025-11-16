@@ -29,3 +29,4 @@ onnxruntime
 opencv-contrib-python
 pyvirtualcam>=1.4.0 
 
+sentence-transformers>=2.2.2

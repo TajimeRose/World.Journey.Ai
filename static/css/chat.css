@@ -1220,6 +1220,7 @@ a:focus {
     border-radius: 12px;
     padding: 1rem;
     transition: all 0.3s ease;
+    color: #111111;
 }
 
 .place-card:hover {
@@ -1235,40 +1236,66 @@ a:focus {
 .place-card-title {
     margin: 0 0 0.5rem 0;
     font-size: 1.1rem;
-    font-weight: 600;
-    color: #60a5fa;
+    font-weight: 700;
+    color: #0b3d91;
     line-height: 1.4;
 }
 
 .place-card-location {
     font-size: 0.875rem;
-    color: #cbd5e1;
+    color: #111111;
     display: flex;
     align-items: center;
     gap: 0.3rem;
+}
+
+.place-card-type {
+    font-size: 0.85rem;
+    font-weight: 600;
+    color: #0f4c9b;
+    margin-bottom: 0.35rem;
 }
 
 .place-card-description {
     margin: 0.75rem 0;
     font-size: 0.9rem;
     line-height: 1.6;
-    color: #e2e8f0;
+    color: #111111;
+}
+
+.place-card-details-btn {
+    margin-top: 0.5rem;
+    background: rgba(30, 136, 229, 0.15);
+    border: 1px solid rgba(30, 136, 229, 0.3);
+    color: #0b3d91;
+    padding: 0.4rem 0.75rem;
+    border-radius: 6px;
+    font-size: 0.85rem;
+    cursor: pointer;
+    transition: background 0.2s ease;
+}
+
+.place-card-details-btn:hover {
+    background: rgba(30, 136, 229, 0.25);
+}
+
+.place-card-details {
+    margin-top: 0.5rem;
+    font-size: 0.85rem;
+    line-height: 1.5;
+    color: #1f2933;
+}
+
+.place-card-details.hidden {
+    display: none;
 }
 
 .place-card-hours,
 .place-card-contact {
     font-size: 0.85rem;
-    color: #cbd5e1;
+    color: #111111;
     margin-top: 0.5rem;
     display: flex;
     align-items: center;
     gap: 0.3rem;
-}
-
-.place-card-hours {
-    color: #6ee7b7;
-}
-
-.place-card-contact {
-    color: #93c5fd;
 }

@@ -114,8 +114,20 @@
 
     const title = document.createElement('h4');
     title.className = 'place-card-title';
-    title.textContent = place.place_name || place.name || 'ไม่ระบุชื่อ';
+    const placeName = place.place_name || place.name || 'ไม่ระบุชื่อ';
+    title.textContent = placeName;
     header.appendChild(title);
+
+    const typeText = place.type
+      || place.category
+      || (place.place_information && place.place_information.category_description)
+      || '';
+    if (typeText) {
+      const typeLabel = document.createElement('div');
+      typeLabel.className = 'place-card-type';
+      typeLabel.innerHTML = `<strong>- ประเภทสถานที่:</strong> ${typeText}`;
+      header.appendChild(typeLabel);
+    }
 
     // Handle location - can be string or object
     const locationText = (() => {
@@ -135,7 +147,7 @@
     if (locationText) {
       const location = document.createElement('div');
       location.className = 'place-card-location';
-      location.innerHTML = `📍 ${locationText}`;
+      location.innerHTML = `<strong>- ที่ตั้ง:</strong> ${locationText}`;
       header.appendChild(location);
     }
 
@@ -154,11 +166,58 @@
       return '';
     })();
 
-    if (descriptionText) {
+    const shortDescription = (() => {
+      const candidate =
+        place.short_description ||
+        place.summary ||
+        descriptionText ||
+        (place.highlight ? place.highlight.join(', ') : '');
+      if (!candidate) return '';
+      if (candidate.length > 280) {
+        return `${candidate.slice(0, 277)}...`;
+      }
+      return candidate;
+    })();
+
+    if (shortDescription) {
       const desc = document.createElement('p');
       desc.className = 'place-card-description';
-      desc.textContent = descriptionText;
+      desc.innerHTML = `<strong>- คำอธิบายย่อ:</strong> ${shortDescription}`;
       card.appendChild(desc);
+    }
+
+    const fullDescription =
+      place.full_description ||
+      (place.place_information && place.place_information.full_detail) ||
+      place.long_description ||
+      descriptionText;
+
+    if (fullDescription) {
+      const detailsWrapper = document.createElement('div');
+      detailsWrapper.className = 'place-card-details-wrapper';
+
+      const detailsToggle = document.createElement('button');
+      detailsToggle.className = 'place-card-details-btn';
+      detailsToggle.type = 'button';
+      detailsToggle.setAttribute('aria-expanded', 'false');
+      detailsToggle.textContent = 'กดเพื่อดูรายละเอียดเพิ่มเติม';
+
+      const detailsContent = document.createElement('div');
+      detailsContent.className = 'place-card-details hidden';
+      detailsContent.textContent = fullDescription;
+
+      detailsToggle.addEventListener('click', () => {
+        const isHidden = detailsContent.classList.contains('hidden');
+        detailsContent.classList.toggle('hidden');
+        detailsToggle.setAttribute('aria-expanded', String(isHidden));
+        detailsToggle.textContent = isHidden
+          ? 'ย่อรายละเอียด'
+          : 'กดเพื่อดูรายละเอียดเพิ่มเติม';
+      });
+
+      detailsWrapper.appendChild(detailsToggle);
+      detailsWrapper.appendChild(detailsContent);
+      card.appendChild(detailsWrapper);
     }
 
     if (place.opening_hours) {
