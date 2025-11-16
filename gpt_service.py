@@ -24,6 +24,7 @@ class GPTService:
         self.model_name = os.getenv("OPENAI_MODEL") or self.model_config.get("default_model")
         system_data = PROMPT_REPO.get_prompt("chatbot/system", default={})
         self.system_prompts = system_data.get("default", {})
+        self.character_profile = PROMPT_REPO.get_character_profile()
         self.answer_prompts = PROMPT_REPO.get_prompt("chatbot/answer", default={})
         self.search_prompts = PROMPT_REPO.get_prompt("chatbot/search", default={})
         self.preferences = PROMPT_REPO.get_preferences()
@@ -71,6 +72,7 @@ class GPTService:
             data_context = self._format_context_data(context_data, data_type)
             status_note = self._build_context_status_note(data_status, bool(context_data))
             preference_note = self._build_preference_note()
+            search_instruction = self._build_search_instruction(language)
 
             user_parts = [f"User Query: {user_query}"]
             if intent:
@@ -79,6 +81,8 @@ class GPTService:
                 user_parts.append(status_note)
             if preference_note:
                 user_parts.append(preference_note)
+            if search_instruction:
+                user_parts.append(search_instruction)
             user_parts.append(data_context)
             user_message = "\n\n".join(part for part in user_parts if part)
 
@@ -250,6 +254,17 @@ class GPTService:
             components.append(cta)
         return " | ".join(components)
 
+    def _build_search_instruction(self, language: str) -> str:
+        if language == "th":
+            return (
+                "ให้ผสมผสานความรู้หรือการค้นหาของคุณกับข้อมูลยืนยันด้านล่างเกี่ยวกับการท่องเที่ยวสมุทรสงคราม "
+                "โดยยึดข้อมูลจากไฟล์เป็นหลัก และหากมีข้อมูลทั่วไปเพิ่มเติมให้ระบุให้ชัดเจน"
+            )
+        return (
+            "Combine any reliable knowledge you have with the verified Samut Songkhram dataset below, "
+            "favoring the dataset when conflicts arise and labelling additional insights as general knowledge."
+        )
+
     def _build_fallback_payload(
         self,
         language: str,
@@ -284,7 +299,14 @@ class GPTService:
         if not self.client:
             return {"keywords": [], "places": []}
 
+        character_hint = ""
+        if self.character_profile:
+            name = self.character_profile.get("name", "Nong Pla Too")
+            description = " ".join(self.character_profile.get("characteristics", []))
+            character_hint = f"You are {name}. {description}"
+
         prompt = (
+            f"{character_hint}\n\n"
             "You are a travel data matcher for Samut Songkhram.\n"
             "Dataset entries:\n"
             f"{dataset_summary}\n\n"

@@ -1,5 +1,6 @@
 """GPT chatbot for Samut Songkhram tourism. OPENAI_MODEL (default: gpt-5)."""
 
+import hashlib
 import json
 import re
 from pathlib import Path
@@ -17,6 +18,13 @@ except Exception as exc:
 
 PROMPT_REPO = PromptRepo()
 DATA_FILE = Path(__file__).resolve().parent / "world_journey_ai" / "data" / "travel_data.json"
+CONFIG_DIR = Path(__file__).resolve().parent / "world_journey_ai" / "configs"
+SAMUT_PROFILE_FILE = CONFIG_DIR / "SamutSongkhram.json"
+TRIP_FILES = {
+    "2days1nighttrip": CONFIG_DIR / "2days1nighttrip.json",
+    "1daytrip": CONFIG_DIR / "1daytrip.json",
+    "9temples": CONFIG_DIR / "9temples.json",
+}
 LOCAL_KEYWORDS = PROMPT_REPO.get_prompt("chatbot/local_terms", default=[
     "สมุทรสงคราม",
     "samut songkhram"
@@ -31,9 +39,17 @@ class TravelChatbot:
         self.chatbot_prompts = PROMPT_REPO.get_prompt("chatbot/answer", default={})
         self.preferences = PROMPT_REPO.get_preferences()
         self.runtime_config = PROMPT_REPO.get_runtime_config()
+        self.character_profile = PROMPT_REPO.get_character_profile()
         self.match_limit = self.runtime_config.get("matching", {}).get("max_matches", 5)
         self.gpt_service: Optional[Any] = None
-        self.travel_data = self._load_travel_data()
+        self.province_profile = self._load_province_profile()
+        raw_trip_guides = self._load_trip_guides()
+        self.travel_data = self._load_travel_data(raw_trip_guides)
+        self.trip_guides = {
+            entry["id"]: entry
+            for entry in self.travel_data
+            if entry.get("category") == "trip_plan"
+        }
         self.dataset_summary = self._build_dataset_summary()
         self.local_reference_terms = self._build_local_reference_terms()
 
@@ -52,18 +68,308 @@ class TravelChatbot:
         thai_chars = sum(1 for ch in text if "\u0e00" <= ch <= "\u0e7f")
         return "th" if thai_chars > max(1, len(text) // 3) else "en"
 
-    def _load_travel_data(self) -> List[Dict[str, Any]]:
-        if not DATA_FILE.exists():
-            print(f"[WARN] Travel data file not found: {DATA_FILE}")
-            return []
-        try:
-            with open(DATA_FILE, "r", encoding="utf-8") as handle:
-                data = json.load(handle)
-                if isinstance(data, list):
-                    return data
-        except (json.JSONDecodeError, OSError) as exc:
-            print(f"[WARN] Cannot load travel data: {exc}")
+    def _load_travel_data(
+        self,
+        trip_guides: Optional[Dict[str, Dict[str, Any]]] = None,
+    ) -> List[Dict[str, Any]]:
+        entries: List[Dict[str, Any]] = []
+
+        province_places = (self.province_profile or {}).get("places", [])
+        entries.extend(self._convert_province_places(province_places))
+
+        if trip_guides:
+            entries.extend(trip_guides.values())
+
+        base_entries = self._read_json_list(DATA_FILE)
+        entries.extend(self._convert_travel_dataset(base_entries))
+
+        return self._deduplicate_entries(entries)
+
+    def _load_province_profile(self) -> Dict[str, Any]:
+        data = self._load_json_content(SAMUT_PROFILE_FILE)
+        return data if isinstance(data, dict) else {}
+
+    def _load_trip_guides(self) -> Dict[str, Dict[str, Any]]:
+        guides: Dict[str, Dict[str, Any]] = {}
+        for slug, path in TRIP_FILES.items():
+            payload = self._load_json_content(path)
+            if not isinstance(payload, dict) or not payload:
+                continue
+            entry = self._transform_trip_data(slug, payload)
+            if entry:
+                guides[slug] = entry
+        return guides
+
+    def _transform_trip_data(self, slug: str, payload: Dict[str, Any]) -> Optional[Dict[str, Any]]:
+        trip_plan = payload.get("trip_plan", {})
+        title = trip_plan.get("title") or payload.get("trip_title") or payload.get("title")
+        if not title:
+            return None
+
+        overview = (
+            trip_plan.get("overview")
+            or payload.get("overview")
+            or payload.get("theme")
+            or ""
+        )
+        detail_lines: List[str] = []
+        if overview:
+            detail_lines.append(overview)
+        for day_key in ("day_1", "day_2", "day_3"):
+            day_plan = trip_plan.get(day_key)
+            if isinstance(day_plan, dict):
+                summary = self._summarize_day_plan(day_plan)
+                if summary:
+                    detail_lines.append(summary)
+
+        route = payload.get("suggested_route")
+        if isinstance(route, dict):
+            route_summary = self._summarize_route(route)
+            if route_summary:
+                detail_lines.append(route_summary)
+
+        detail_text = "\n".join(line for line in detail_lines if line)
+
+        highlight_terms: List[str] = []
+        for tip in payload.get("travel_tips", []) or []:
+            if tip:
+                highlight_terms.append(str(tip))
+        for attraction in payload.get("attractions", []) or []:
+            name = attraction.get("name")
+            if name:
+                highlight_terms.append(name)
+        for activity in payload.get("recommended_activities", []) or []:
+            name = activity.get("name")
+            if name:
+                highlight_terms.append(name)
+        highlight_terms = list(dict.fromkeys(highlight_terms))
+
+        raw_entry = {
+            "id": slug,
+            "place_name": title,
+            "name": title,
+            "category": "trip_plan",
+            "type": ["trip_plan"],
+            "description": detail_text or overview,
+            "place_information": {
+                "detail": detail_text or overview,
+                "highlights": highlight_terms,
+                "category_description": "trip_plan",
+            },
+            "highlights": highlight_terms,
+            "trip_plan": trip_plan,
+            "suggested_route": route,
+            "travel_tips": payload.get("travel_tips", []),
+            "recommended_activities": payload.get("recommended_activities", []),
+            "suitable_for": payload.get("suitable_for", []),
+        }
+        entry = self._standardize_entry(raw_entry, source="trip_json", priority=2)
+        return entry
+
+    @staticmethod
+    def _summarize_day_plan(day_plan: Dict[str, Any]) -> str:
+        title = day_plan.get("title", "")
+        activities = day_plan.get("activities", []) or []
+        steps: List[str] = []
+        for activity in activities:
+            if not isinstance(activity, dict):
+                continue
+            action = activity.get("action")
+            description = activity.get("description")
+            if action and description:
+                steps.append(f"{action} ({description})")
+            elif action:
+                steps.append(action)
+        actions = " -> ".join(steps)
+        if title and actions:
+            return f"{title}: {actions}"
+        return title or actions
+
+    @staticmethod
+    def _summarize_route(route: Dict[str, Any]) -> str:
+        start = route.get("start_point")
+        order = route.get("route_order", []) or []
+        if order:
+            path = " -> ".join(order)
+            if start:
+                return f"เส้นทางแนะนำ: {start} -> {path}"
+            return f"เส้นทางแนะนำ: {path}"
+        return ""
+
+    def _convert_province_places(self, places: Optional[List[Dict[str, Any]]]) -> List[Dict[str, Any]]:
+        normalized: List[Dict[str, Any]] = []
+        for place in places or []:
+            city = self._extract_city_name(place.get("location"))
+            raw_entry = {
+                "place_name": place.get("name_th") or place.get("name_en"),
+                "name": place.get("name_th") or place.get("name_en"),
+                "name_en": place.get("name_en"),
+                "city": city,
+                "description": place.get("history") or "",
+                "highlights": place.get("highlights", []),
+                "type": place.get("type", []),
+                "rating": place.get("rating"),
+                "location": {"district": city, "province": "สมุทรสงคราม"},
+                "place_information": {
+                    "detail": place.get("history") or "",
+                    "highlights": place.get("highlights", []),
+                    "category_description": ", ".join(place.get("type", [])) if place.get("type") else "attraction",
+                },
+            }
+            entry = self._standardize_entry(raw_entry, source="province_json", priority=3)
+            if entry:
+                normalized.append(entry)
+        return normalized
+
+    def _convert_travel_dataset(self, entries: List[Dict[str, Any]]) -> List[Dict[str, Any]]:
+        normalized: List[Dict[str, Any]] = []
+        for entry in entries:
+            normalized_entry = self._standardize_entry(entry, source="travel_json", priority=1)
+            if normalized_entry:
+                normalized.append(normalized_entry)
+        return normalized
+
+    def _standardize_entry(
+        self,
+        entry: Dict[str, Any],
+        *,
+        source: str,
+        priority: int,
+    ) -> Optional[Dict[str, Any]]:
+        if not isinstance(entry, dict):
+            return None
+        normalized = dict(entry)
+        name_candidates = [
+            normalized.get("place_name"),
+            normalized.get("name"),
+            normalized.get("name_th"),
+            normalized.get("name_en"),
+            normalized.get("title"),
+        ]
+        name = next((value for value in name_candidates if value), None)
+        if not name:
+            return None
+
+        normalized["name"] = name
+        normalized["place_name"] = normalized.get("place_name") or name
+        normalized["_priority"] = priority
+        normalized["source"] = source
+
+        highlights = normalized.get("highlights")
+        if isinstance(highlights, str):
+            highlights = [highlights]
+        elif not isinstance(highlights, list):
+            highlights = []
+        normalized["highlights"] = highlights
+
+        if isinstance(normalized.get("type"), str):
+            normalized["type"] = [normalized["type"]]  # type: ignore[list-item]
+        elif not isinstance(normalized.get("type"), list):
+            normalized["type"] = []
+
+        description = normalized.get("description") or normalized.get("history") or ""
+        normalized["description"] = description
+
+        location = normalized.get("location")
+        if not isinstance(location, dict):
+            location = {}
+        city = normalized.get("city")
+        if not city:
+            location_str = entry.get("location")
+            if isinstance(location_str, str):
+                city = self._extract_city_name(location_str)
+        if city:
+            normalized["city"] = city
+            location.setdefault("district", city)
+        location.setdefault("province", "สมุทรสงคราม")
+        normalized["location"] = location
+
+        info = normalized.get("place_information")
+        if not isinstance(info, dict):
+            info = {}
+        if not info.get("detail"):
+            info["detail"] = description
+        if "highlights" not in info and highlights:
+            info["highlights"] = highlights
+        if "category_description" not in info:
+            if normalized["type"]:
+                info["category_description"] = ", ".join(str(t) for t in normalized["type"])
+            else:
+                info["category_description"] = normalized.get("category") or "travel"
+        normalized["place_information"] = info
+
+        if not normalized.get("id"):
+            normalized["id"] = self._slugify_identifier(name)
+
+        return normalized
+
+    def _deduplicate_entries(self, entries: List[Dict[str, Any]]) -> List[Dict[str, Any]]:
+        merged: Dict[str, Dict[str, Any]] = {}
+        for entry in entries:
+            if not isinstance(entry, dict):
+                continue
+            ident = entry.get("id") or self._slugify_identifier(entry.get("place_name", "") or "")
+            if not ident:
+                continue
+            priority = entry.get("_priority", 0)
+            existing = merged.get(ident)
+            if existing and existing.get("_priority", 0) >= priority:
+                continue
+            normalized_entry = dict(entry)
+            normalized_entry["id"] = ident
+            normalized_entry["_priority"] = priority
+            merged[ident] = normalized_entry
+
+        final_entries: List[Dict[str, Any]] = []
+        for entry in merged.values():
+            entry.pop("_priority", None)
+            final_entries.append(entry)
+        return final_entries
+
+    def _read_json_list(self, path: Path) -> List[Dict[str, Any]]:
+        data = self._load_json_content(path)
+        if isinstance(data, list):
+            return data
         return []
+
+    def _load_json_content(self, path: Path) -> Any:
+        if not path.exists():
+            print(f"[WARN] JSON file not found: {path}")
+            return None
+        try:
+            if path.stat().st_size == 0:
+                return {}
+            with open(path, "r", encoding="utf-8") as handle:
+                return json.load(handle)
+        except (json.JSONDecodeError, OSError) as exc:
+            print(f"[WARN] Cannot load JSON from {path}: {exc}")
+            return None
+
+    def _slugify_identifier(self, text: str) -> str:
+        if not text:
+            return hashlib.sha1(b"default").hexdigest()[:10]
+        cleaned = re.sub(r"[^0-9a-zA-Z\u0E00-\u0E7F]+", "-", text.strip().lower())
+        cleaned = cleaned.strip("-")
+        if cleaned:
+            return cleaned
+        return hashlib.sha1(text.encode("utf-8")).hexdigest()[:10]
+
+    @staticmethod
+    def _extract_city_name(location_text: Optional[str]) -> str:
+        if not isinstance(location_text, str):
+            return ""
+        text = location_text.strip()
+        if not text:
+            return ""
+        for marker in ("อำเภอ", "อ.", "อำเภ"):
+            if marker in text:
+                after = text.split(marker, 1)[1].strip()
+                return after.split()[0].strip(" ,")
+        for marker in ("ตำบล", "ต.", "ตำบล"):
+            if marker in text:
+                after = text.split(marker, 1)[1].strip()
+                return after.split()[0].strip(" ,")
+        return text
 
     def _build_dataset_summary(self) -> str:
         if not self.travel_data:
@@ -72,7 +378,9 @@ class TravelChatbot:
         for entry in self.travel_data:
             name = entry.get("name") or entry.get("place_name") or "unknown"
             city = entry.get("city") or entry.get("location", {}).get("district", "")
-            entry_type = entry.get("type", entry.get("category", ""))
+            entry_type = entry.get("type") or entry.get("category", "")
+            if isinstance(entry_type, list):
+                entry_type = ", ".join(str(t) for t in entry_type)
             lines.append(f"- {name} | city: {city} | type: {entry_type}")
         return "\n".join(lines[:50])
 
@@ -103,10 +411,35 @@ class TravelChatbot:
         keyword_list = [kw.lower() for kw in (keywords or []) if kw]
         scored: List[tuple[Dict[str, Any], int]] = []
         for entry in self.travel_data:
-            haystack = " ".join(
-                str(entry.get(field, "")).lower()
-                for field in ("name", "description", "city", "highlights")
-            )
+            text_fields: List[str] = []
+            for field in ("name", "description", "city"):
+                value = entry.get(field)
+                if value:
+                    text_fields.append(str(value))
+            highlights = entry.get("highlights")
+            if highlights:
+                if isinstance(highlights, list):
+                    text_fields.append(" ".join(str(item) for item in highlights))
+                else:
+                    text_fields.append(str(highlights))
+            info = entry.get("place_information") or {}
+            if isinstance(info, dict):
+                detail_text = info.get("detail")
+                if detail_text:
+                    text_fields.append(str(detail_text))
+                category_description = info.get("category_description")
+                if category_description:
+                    text_fields.append(str(category_description))
+                info_highlights = info.get("highlights")
+                if isinstance(info_highlights, list):
+                    text_fields.append(" ".join(str(item) for item in info_highlights))
+            types = entry.get("type")
+            if types:
+                if isinstance(types, list):
+                    text_fields.append(" ".join(str(item) for item in types))
+                else:
+                    text_fields.append(str(types))
+            haystack = " ".join(part.lower() for part in text_fields if part)
             score = 0
             if normalized in haystack:
                 score += 3
@@ -122,6 +455,62 @@ class TravelChatbot:
         if not scored:
             return []
         return [item for item, _ in scored[:limit]]
+
+    def _select_trip_guides_for_query(self, query: str) -> List[Dict[str, Any]]:
+        if not getattr(self, "trip_guides", None):
+            return []
+        normalized = query.lower()
+        matches: List[Dict[str, Any]] = []
+
+        def add(slug: str) -> None:
+            entry = self.trip_guides.get(slug)
+            if entry and entry not in matches:
+                matches.append(entry)
+
+        if any(keyword in normalized for keyword in ("9 วัด", "๙ วัด", "ไหว้พระ", "temple tour", "nine temples")):
+            add("9temples")
+        if any(keyword in normalized for keyword in ("2 วัน", "สองวัน", "2-day", "2 day", "1 คืน", "ค้างคืน", "2d1n", "weekend")):
+            add("2days1nighttrip")
+        if any(keyword in normalized for keyword in ("1 วัน", "วันเดียว", "ครึ่งวัน", "half day", "one day")):
+            add("1daytrip")
+
+        if not matches and self._is_trip_intent(normalized):
+            matches.extend(self.trip_guides.values())
+
+        return matches
+
+    def _merge_structured_data(
+        self,
+        base: List[Dict[str, Any]],
+        extras: List[Dict[str, Any]],
+    ) -> List[Dict[str, Any]]:
+        if not extras:
+            return base
+        merged: Dict[str, Dict[str, Any]] = {}
+        for entry in base:
+            merged[self._entry_identifier(entry)] = entry
+        for entry in extras:
+            merged[self._entry_identifier(entry)] = entry
+        return list(merged.values())
+
+    def _entry_identifier(self, entry: Dict[str, Any]) -> str:
+        ident = entry.get("id")
+        if not ident:
+            ident = self._slugify_identifier(entry.get("place_name") or entry.get("name") or repr(entry))
+            entry["id"] = ident
+        return ident
+
+    def _is_trip_intent(self, normalized_query: str) -> bool:
+        trip_keywords = (
+            "ทริป",
+            "แผนเที่ยว",
+            "จัดทริป",
+            "แผนการเดินทาง",
+            "trip plan",
+            "itinerary",
+            "travel plan",
+        )
+        return any(keyword in normalized_query for keyword in trip_keywords)
 
     def _contains_local_reference(self, text: str) -> bool:
         lowered = text.lower()
@@ -165,6 +554,18 @@ class TravelChatbot:
         if cta := prefs.get("call_to_action"):
             components.append(cta)
         return " | ".join(components)
+
+    def _character_context(self) -> str:
+        profile = self.character_profile or {}
+        parts = []
+        name = profile.get("name")
+        if name:
+            parts.append(f"Character: {name}")
+        if profile.get("characteristics"):
+            parts.extend(profile["characteristics"])
+        if profile.get("knowledge_scope"):
+            parts.append("Knowledge scope: " + ", ".join(profile["knowledge_scope"]))
+        return " | ".join(parts)
 
     def _create_simple_response(self, context_data: List[Dict], language: str) -> str:
         if not context_data:
@@ -229,10 +630,46 @@ class TravelChatbot:
     def get_response(self, user_message: str, user_id: str = "default") -> Dict[str, Any]:
         language = self._detect_language(user_message)
         self._refresh_settings()
-        analysis = self._interpret_query_keywords(user_message) if user_message.strip() else {"keywords": [], "places": []}
+        trimmed_query = user_message.strip()
+        normalized_query = trimmed_query.lower()
+        greetings_th = ("สวัสดี", "หวัดดี", "ดีจ้า", "สวัสดีค่ะ", "สวัสดีครับ")
+        greetings_en = ("hello", "hi", "hey", "greetings")
+        if trimmed_query and any(word in normalized_query for word in greetings_th + greetings_en):
+            greeting_profile = self.character_profile.get("greeting", {}) if self.character_profile else {}
+            if language == "th":
+                greeting_text = greeting_profile.get(
+                    "th",
+                    "สวัสดีค่ะ! น้องปลาทูพร้อมช่วยแนะนำทริปในสมุทรสงครามให้เลยค่ะ"
+                )
+            else:
+                greeting_text = greeting_profile.get(
+                    "en",
+                    "Hello! I'm Nong Pla Too, happy to help plan your Samut Songkhram adventures!"
+                )
+            return {
+                'response': greeting_text,
+                'structured_data': [],
+                'language': language,
+                'source': 'greeting',
+                'intent': 'greeting',
+                'data_status': {
+                    'success': True,
+                    'message': 'Greeting response',
+                    'data_available': False,
+                    'source': 'local_json',
+                    'preference_note': self._preference_context(),
+                    'character_note': self._character_context()
+                }
+            }
+
+        analysis = self._interpret_query_keywords(user_message) if trimmed_query else {"keywords": [], "places": []}
         keyword_pool = (analysis.get("keywords") or []) + (analysis.get("places") or [])
         matched_data = self._match_travel_data(user_message, keywords=keyword_pool)
+        trip_matches = self._select_trip_guides_for_query(user_message)
+        if trip_matches:
+            matched_data = self._merge_structured_data(matched_data, trip_matches)
         preference_note = self._preference_context()
+        character_note = self._character_context()
         includes_local_term = self._contains_local_reference(user_message)
         if not includes_local_term:
             includes_local_term = any(self._contains_local_reference(str(keyword)) for keyword in keyword_pool)
@@ -243,13 +680,14 @@ class TravelChatbot:
         data_status = {
             'success': bool(matched_data),
             'message': (
-                f"Matched local entries using keywords: {keyword_pool}"
+                f"Matched {len(matched_data)} Samut Songkhram entries using keywords: {keyword_pool}"
                 if matched_data else
-                f"No local entries matched for keywords: {keyword_pool}"
+                f"No Samut Songkhram entries matched for keywords: {keyword_pool}"
             ),
             'data_available': bool(matched_data),
             'source': 'local_json',
-            'preference_note': preference_note
+            'preference_note': preference_note,
+            'character_note': character_note
         }
 
         if mentions_other_province:
@@ -301,7 +739,8 @@ class TravelChatbot:
                     'source': gpt_result.get('source', 'openai'),
                     'intent': 'general',
                     'tokens_used': gpt_result.get('tokens_used'),
-                    'data_status': data_status
+                    'data_status': data_status,
+                    'character_note': character_note
                 }
                 
             except Exception as e:
