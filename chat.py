@@ -15,7 +15,6 @@ except Exception as exc:
     GPTService = None
 
 PROMPT_REPO = PromptRepo()
-CHATBOT_PROMPTS = PROMPT_REPO.get_prompt("chatbot/answer", default={})
 DATA_FILE = Path(__file__).resolve().parent / "world_journey_ai" / "data" / "travel_data.json"
 
 
@@ -24,9 +23,13 @@ class TravelChatbot:
 
     def __init__(self) -> None:
         self.bot_name = "NongPlaToo"
-        self.chatbot_prompts = CHATBOT_PROMPTS
+        self.chatbot_prompts = PROMPT_REPO.get_prompt("chatbot/answer", default={})
+        self.preferences = PROMPT_REPO.get_preferences()
+        self.runtime_config = PROMPT_REPO.get_runtime_config()
+        self.match_limit = self.runtime_config.get("matching", {}).get("max_matches", 5)
         self.gpt_service: Optional[Any] = None
         self.travel_data = self._load_travel_data()
+        self.dataset_summary = self._build_dataset_summary()
 
         if GPT_AVAILABLE and GPTService is not None:
             try:
@@ -56,11 +59,33 @@ class TravelChatbot:
             print(f"[WARN] Cannot load travel data: {exc}")
         return []
 
-    def _match_travel_data(self, query: str, limit: int = 5) -> List[Dict[str, Any]]:
+    def _build_dataset_summary(self) -> str:
+        if not self.travel_data:
+            return ""
+        lines = []
+        for entry in self.travel_data:
+            name = entry.get("name") or entry.get("place_name") or "unknown"
+            city = entry.get("city") or entry.get("location", {}).get("district", "")
+            entry_type = entry.get("type", entry.get("category", ""))
+            lines.append(f"- {name} | city: {city} | type: {entry_type}")
+        return "\n".join(lines[:50])
+
+    def _interpret_query_keywords(self, query: str) -> Dict[str, List[str]]:
+        if not self.gpt_service or not self.dataset_summary:
+            return {"keywords": [], "places": []}
+        try:
+            return self.gpt_service.extract_query_entities(query, self.dataset_summary)
+        except Exception as exc:
+            print(f"[WARN] Query interpretation failed: {exc}")
+            return {"keywords": [], "places": []}
+
+    def _match_travel_data(self, query: str, keywords: Optional[List[str]] = None, limit: Optional[int] = None) -> List[Dict[str, Any]]:
         if not self.travel_data:
             return []
+        limit = limit or self.match_limit or 5
         normalized = query.lower()
         tokens = [tok for tok in normalized.split() if tok]
+        keyword_list = [kw.lower() for kw in (keywords or []) if kw]
         scored: List[tuple[Dict[str, Any], int]] = []
         for entry in self.travel_data:
             haystack = " ".join(
@@ -73,13 +98,34 @@ class TravelChatbot:
             for token in tokens:
                 if token in haystack:
                     score += 1
+            for kw in keyword_list:
+                if kw in haystack:
+                    score += 3
             if score > 0:
                 scored.append((entry, score))
         scored.sort(key=lambda item: item[1], reverse=True)
-        matches = [item for item, _ in scored[:limit]]
-        if not matches:
-            return self.travel_data[:limit]
-        return matches
+        if not scored:
+            return []
+        return [item for item, _ in scored[:limit]]
+
+    def _refresh_settings(self) -> None:
+        self.chatbot_prompts = PROMPT_REPO.get_prompt("chatbot/answer", default=self.chatbot_prompts)
+        self.preferences = PROMPT_REPO.get_preferences()
+        self.runtime_config = PROMPT_REPO.get_runtime_config()
+        self.match_limit = self.runtime_config.get("matching", {}).get("max_matches", 5)
+
+    def _preference_context(self) -> str:
+        prefs = self.preferences or {}
+        components = []
+        if tone := prefs.get("tone"):
+            components.append(f"Preferred tone: {tone}")
+        if style := prefs.get("response_style"):
+            components.append(f"Response style: {style}")
+        if format_hint := prefs.get("format"):
+            components.append(f"Format guide: {format_hint}")
+        if cta := prefs.get("call_to_action"):
+            components.append(cta)
+        return " | ".join(components)
 
     def _create_simple_response(self, context_data: List[Dict], language: str) -> str:
         if not context_data:
@@ -143,12 +189,21 @@ class TravelChatbot:
 
     def get_response(self, user_message: str, user_id: str = "default") -> Dict[str, Any]:
         language = self._detect_language(user_message)
-        matched_data = self._match_travel_data(user_message)
+        self._refresh_settings()
+        analysis = self._interpret_query_keywords(user_message) if user_message.strip() else {"keywords": [], "places": []}
+        keyword_pool = (analysis.get("keywords") or []) + (analysis.get("places") or [])
+        matched_data = self._match_travel_data(user_message, keywords=keyword_pool)
+        preference_note = self._preference_context()
         data_status = {
             'success': bool(matched_data),
-            'message': 'Matched local travel entries' if matched_data else 'No local entries matched',
+            'message': (
+                f"Matched local entries using keywords: {keyword_pool}"
+                if matched_data else
+                f"No local entries matched for keywords: {keyword_pool}"
+            ),
             'data_available': bool(matched_data),
-            'source': 'local_json'
+            'source': 'local_json',
+            'preference_note': preference_note
         }
 
         if not user_message.strip():
@@ -162,7 +217,8 @@ class TravelChatbot:
                 'response': simple_msg,
                 'structured_data': [],
                 'language': language,
-                'source': 'empty_query'
+                'source': 'empty_query',
+                'data_status': data_status
             }
 
         if self.gpt_service:

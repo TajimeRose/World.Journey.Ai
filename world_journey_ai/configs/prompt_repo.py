@@ -65,6 +65,12 @@ class PromptRepo:
     def get_chatbot_settings(self) -> Dict[str, Any]:
         return self._feature_config.get("chatbot", {})
 
+    def get_preferences(self) -> Dict[str, Any]:
+        return self._load_json("preferences.json")
+
+    def get_runtime_config(self) -> Dict[str, Any]:
+        return self._load_json("config.json")
+
     @lru_cache(maxsize=None)
     def _load_prompt_namespace(self, namespace: str) -> Dict[str, Any]:
         namespace_path = self._root / "prompts" / namespace
