@@ -1,13 +1,17 @@
 ﻿(() => {
   const firebaseCtx = window.__FIREBASE__;
-  if (!firebaseCtx || !firebaseCtx.auth || !firebaseCtx.authApi || !firebaseCtx.dbApi) {
-    console.error('Firebase is not configured; login disabled.');
-    return;
+  const AUTH_ENABLED = !!(firebaseCtx && firebaseCtx.auth && firebaseCtx.authApi && firebaseCtx.dbApi);
+
+  if (!AUTH_ENABLED) {
+    console.warn('Firebase is not configured; UI enabled but submission disabled.');
   }
 
-  const { auth, authApi, dbApi } = firebaseCtx;
-  const { signInWithEmailAndPassword, createUserWithEmailAndPassword, updateProfile } = authApi;
-  const { ref, update } = dbApi;
+  const auth = AUTH_ENABLED ? firebaseCtx.auth : null;
+  const signInWithEmailAndPassword = AUTH_ENABLED ? firebaseCtx.authApi.signInWithEmailAndPassword : null;
+  const createUserWithEmailAndPassword = AUTH_ENABLED ? firebaseCtx.authApi.createUserWithEmailAndPassword : null;
+  const updateProfile = AUTH_ENABLED ? firebaseCtx.authApi.updateProfile : async () => { };
+  const ref = AUTH_ENABLED ? firebaseCtx.dbApi.ref : () => { };
+  const update = AUTH_ENABLED ? firebaseCtx.dbApi.update : async () => { };
 
   const form = document.getElementById('auth-form');
   const modeButtons = document.querySelectorAll('[data-auth-mode]');
@@ -55,18 +59,22 @@
   }
 
   const ERROR_MESSAGES = {
-    'auth/invalid-email': 'เธญเธตเน€เธกเธฅเนเธกเนเธ–เธนเธเธ•เนเธญเธ',
-    'auth/user-not-found': 'เนเธกเนเธเธเธเธฑเธเธเธตเธเธตเน เธเธฃเธธเธ“เธฒเธ•เธฃเธงเธเธชเธญเธเธญเธตเธเธเธฃเธฑเนเธ',
-    'auth/wrong-password': 'เธฃเธซเธฑเธชเธเนเธฒเธเนเธกเนเธ–เธนเธเธ•เนเธญเธ',
-    'auth/missing-password': 'เธเธฃเธธเธ“เธฒเธเธฃเธญเธเธฃเธซเธฑเธชเธเนเธฒเธ',
-    'auth/email-already-in-use': 'เธญเธตเน€เธกเธฅเธเธตเนเธ–เธนเธเนเธเนเธเธฒเธเนเธฅเนเธง',
-    'auth/weak-password': 'เธฃเธซเธฑเธชเธเนเธฒเธเธ•เนเธญเธเธกเธตเธเธงเธฒเธกเธขเธฒเธงเธญเธขเนเธฒเธเธเนเธญเธข 6 เธ•เธฑเธงเธญเธฑเธเธฉเธฃ',
-    'auth/network-request-failed': 'เน€เธเธทเนเธญเธกเธ•เนเธญเน€เธเธฃเธทเธญเธเนเธฒเธขเนเธกเนเธชเธณเน€เธฃเนเธ',
-    'auth/too-many-requests': 'เธเธขเธฒเธขเธฒเธกเธซเธฅเธฒเธขเธเธฃเธฑเนเธเน€เธเธดเธเนเธ เธเธฃเธธเธ“เธฒเธฅเธญเธเนเธซเธกเนเธ เธฒเธขเธซเธฅเธฑเธ',
+    'auth/invalid-email': 'รูปแบบอีเมลไม่ถูกต้อง',
+    'auth/user-not-found': 'ไม่พบบัญชีผู้ใช้ กรุณาตรวจสอบอีเมลหรือสมัครสมาชิก',
+    'auth/wrong-password': 'รหัสผ่านไม่ถูกต้อง',
+    'auth/missing-password': 'กรุณากรอกรหัสผ่าน',
+    'auth/email-already-in-use': 'อีเมลนี้ถูกใช้งานแล้ว กรุณาเข้าสู่ระบบหรือใช้อีเมลอื่น',
+    'auth/weak-password': 'รหัสผ่านอ่อนเกินไป ต้องมีอย่างน้อย 6 ตัวอักษร',
+    'auth/network-request-failed': 'ไม่สามารถเชื่อมต่อเครือข่ายได้ กรุณาตรวจสอบอินเทอร์เน็ต',
+    'auth/too-many-requests': 'พยายามเข้าสู่ระบบมากเกินไป กรุณารอสักครู่แล้วลองใหม่',
+    'auth/user-disabled': 'บัญชีนี้ถูกระงับการใช้งาน',
+    'auth/operation-not-allowed': 'ระบบไม่อนุญาตให้ทำรายการนี้',
+    'auth/invalid-credential': 'ข้อมูลเข้าสู่ระบบไม่ถูกต้อง กรุณาตรวจสอบอีเมลและรหัสผ่าน',
   };
 
   function mapError(error) {
-    return ERROR_MESSAGES[error?.code] || 'เน€เธเธดเธ”เธเนเธญเธเธดเธ”เธเธฅเธฒเธ” เธเธฃเธธเธ“เธฒเธฅเธญเธเนเธซเธกเนเธญเธตเธเธเธฃเธฑเนเธ';
+    console.error('Auth error:', error);
+    return ERROR_MESSAGES[error?.code] || `เกิดข้อผิดพลาด: ${error?.message || 'กรุณาลองใหม่'}`;
   }
 
   async function saveDisplayName(user, name) {
@@ -75,7 +83,7 @@
     try {
       await updateProfile(user, { displayName: cleanName });
     } catch (error) {
-      console.warn('เธเธฑเธเธ—เธถเธเธเธทเนเธญเนเธ Firebase เนเธกเนเธชเธณเน€เธฃเนเธ', error);
+      console.warn('บันทึกชื่อไปยัง Firebase ไม่สำเร็จ', error);
     }
     try {
       const userRef = ref(`/users/${user.uid}`);
@@ -85,7 +93,7 @@
         updatedAt: Date.now(),
       });
     } catch (error) {
-      console.warn('เธเธฑเธเธ—เธถเธเธเนเธญเธกเธนเธฅเธเธนเนเนเธเนเนเธกเนเธชเธณเน€เธฃเนเธ', error);
+      console.warn('บันทึกข้อมูลผู้ใช้ลง Firebase ไม่สำเร็จ', error);
     }
   }
 
@@ -95,17 +103,26 @@
 
     clearErrors();
 
+    // Check if Firebase is available
+    if (!AUTH_ENABLED) {
+      if (generalError) {
+        generalError.textContent = 'ระบบเข้าสู่ระบบยังไม่พร้อมใช้งาน กรุณารีเฟรชหน้าเว็บ';
+        generalError.classList.remove('success');
+      }
+      return;
+    }
+
     const formData = new FormData(form);
     const email = (formData.get('email') || '').toString().trim();
     const password = (formData.get('password') || '').toString();
 
     if (!email) {
-      setFieldError('email', 'เธเธฃเธธเธ“เธฒเธเธฃเธญเธเธญเธตเน€เธกเธฅ');
+      setFieldError('email', 'กรุณากรอกอีเมล');
       return;
     }
 
     if (!password) {
-      setFieldError('password', 'เธเธฃเธธเธ“เธฒเธเธฃเธญเธเธฃเธซเธฑเธชเธเนเธฒเธ');
+      setFieldError('password', 'กรุณากรอกรหัสผ่าน');
       return;
     }
 
@@ -115,12 +132,12 @@
       const confirmPassword = (formData.get('confirmPassword') || '').toString();
 
       if (!displayName) {
-        setFieldError('displayName', 'เธเธฃเธธเธ“เธฒเธเธฃเธญเธเธเธทเนเธญเธ—เธตเนเธ•เนเธญเธเธเธฒเธฃเนเธชเธ”เธ');
+        setFieldError('displayName', 'กรุณากรอกชื่อที่ต้องการแสดง');
         return;
       }
 
       if (password !== confirmPassword) {
-        setFieldError('confirmPassword', 'เธฃเธซเธฑเธชเธเนเธฒเธเธ•เนเธญเธเธ•เธฃเธเธเธฑเธ');
+        setFieldError('confirmPassword', 'รหัสผ่านไม่ตรงกัน');
         return;
       }
     }
