@@ -2,38 +2,423 @@
   "province": "สมุทรสงคราม",
   "places": [
     {
-      "name_th": "วัดจุฬามณี",
-      "location": "อำเภออัมพวา",
-      "rating": 4.7,
-      "images": [
-        "https://example.com/images/wat-chulamanee/cover.jpg",
-        "https://example.com/images/wat-chulamanee/inside.jpg",
-        "https://example.com/images/wat-chulamanee/night.jpg"
-      ],
-      "description": "วัดริมแม่น้ำแม่กลอง มีพระอุโบสถสีขาวและงานประดับกระจกงดงาม",
-      "tags": ["วัด", "ประวัติศาสตร์", "ศาสนา"]
-    },
-    {
-      "name_th": "วัดบางกุ้ง",
-      "location": "อำเภอบางคนที",
-      "rating": 4.5,
-      "images": [
-        "https://example.com/images/wat-bang-kung/cover.jpg",
-        "https://example.com/images/wat-bang-kung/tree-temple.jpg"
-      ],
-      "description": "โบสถ์ปรกโพธิ์ Unseen Thailand สมัยอยุธยา",
-      "tags": ["โบราณสถาน", "Unseen", "ประวัติศาสตร์"]
-    },
-    {
+      "id": 1,
       "name_th": "ตลาดน้ำอัมพวา",
       "location": "อำเภออัมพวา",
-      "rating": 4.6,
       "images": [
-        "https://example.com/images/amphawa/market.jpg",
-        "https://example.com/images/amphawa/boat-night.jpg"
+        "https://upload.wikimedia.org/wikipedia/commons/1/1e/Amphawa_Floating_Market_%28II%29.jpg"
       ],
-      "description": "ตลาดน้ำเย็นชื่อดัง พายเรือขายอาหารริมน้ำ สามารถล่องเรือชมหิ่งห้อยได้",
-      "tags": ["ตลาดน้ำ", "ของกิน", "ท่องเที่ยวกลางคืน"]
+      "description": "ตลาดน้ำยามเย็นที่มีชื่อเสียงที่สุดในประเทศไทย ตั้งอยู่ริมคลองอัมพวา โดดเด่นด้วยเรือนไม้และวิถีชีวิตริมน้ำยามค่ำคืน",
+      "tags": [
+        "ตลาดน้ำ",
+        "วิถีชีวิต",
+        "ยามเย็น",
+        "เรือนไม้"
+      ]
+    },
+    {
+      "id": 2,
+      "name_th": "ตลาดร่มหุบ (ตลาดแม่กลอง)",
+      "location": "อำเภอเมืองสมุทรสงคราม",
+      "images": [
+        "https://upload.wikimedia.org/wikipedia/commons/b/be/%E0%B8%9B%E0%B9%89%E0%B8%B2%E0%B8%A2%E0%B8%AA%E0%B8%96%E0%B8%B2%E0%B8%99%E0%B8%B5%E0%B8%A3%E0%B8%96%E0%B9%84%E0%B8%9F%E0%B9%81%E0%B8%A1%E0%B9%88%E0%B8%81%E0%B8%A5%E0%B8%AD%E0%B8%87.jpg"
+      ],
+      "description": "ตลาดสุดอันซีนที่ตั้งอยู่บนรางรถไฟ พ่อค้าแม่ค้าจะต้องรีบหุบร่มเมื่อรถไฟวิ่งผ่าน เป็นเสน่ห์ที่ไม่เหมือนใคร",
+      "tags": [
+        "ตลาด",
+        "Unseen Thailand",
+        "รถไฟ"
+      ]
+    },
+    {
+      "id": 3,
+      "name_th": "วัดบางกุ้ง (โบสถ์ปรกโพธิ์)",
+      "location": "อำเภอบางคนที",
+      "images": [
+        "https://upload.wikimedia.org/wikipedia/commons/0/09/Wat_bangkung_02.jpg"
+      ],
+      "description": "โบสถ์เก่าแก่สมัยอยุธยาที่ถูกรากของต้นไม้ใหญ่ 4 ชนิด (โพธิ์ ไทร ไกร กร่าง) โอบล้อมไว้ เป็น Unseen Thailand",
+      "tags": [
+        "วัด",
+        "Unseen Thailand",
+        "โบราณสถาน",
+        "ประวัติศาสตร์"
+      ]
+    },
+    {
+      "id": 4,
+      "name_th": "วัดจุฬามณี",
+      "location": "อำเภออัมพวา",
+      "images": [
+        "https://upload.wikimedia.org/wikipedia/commons/6/68/%E0%B8%A7%E0%B8%B1%E0%B8%94%E0%B8%88%E0%B8%B8%E0%B8%AC%E0%B8%B2%E0%B8%A1%E0%B8%93%E0%B8%B5_%E0%B8%AD.%E0%B8%AD%E0%B8%B1%E0%B8%A1%E0%B8%9E%E0%B8%A7%E0%B8%B2_%E0%B8%88.%E0%B8%AA%E0%B8%A1%E0%B8%B8%E0%B8%97%E0%B8%A3%E0%B8%AA%E0%B8%87%E0%B8%84%E0%B8%A3%E0%B8%B2%E0%B8%A1_%286%29.jpg"
+      ],
+      "description": "วัดที่มีความศักดิ์สิทธิ์และเป็นที่รู้จักจากรูปปั้นท้าวเวสสุวรรณขนาดใหญ่ และวิหารจตุรมุขที่สวยงาม",
+      "tags": [
+        "วัด",
+        "ท้าวเวสสุวรรณ",
+        "ศาสนา"
+      ]
+    },
+    {
+      "id": 5,
+      "name_th": "ดอนหอยหลอด",
+      "location": "อำเภอเมืองสมุทรสงคราม",
+      "images": [
+        "https://upload.wikimedia.org/wikipedia/commons/8/89/Solen_strictus.jpg"
+      ],
+      "description": "สันดอนที่มีชื่อเสียงจากการเป็นแหล่งอาศัยของหอยหลอด มีศาลกรมหลวงชุมพรเขตอุดมศักดิ์อยู่บริเวณปากอ่าว",
+      "tags": [
+        "ธรรมชาติ",
+        "ทะเล",
+        "อาหารทะเล",
+        "จุดชมวิว"
+      ]
+    },
+    {
+      "id": 6,
+      "name_th": "วัดเพชรสมุทรวรวิหาร (วัดบ้านแหลม)",
+      "location": "อำเภอเมืองสมุทรสงคราม",
+      "images": [
+        "https://upload.wikimedia.org/wikipedia/commons/c/c6/Wat_Ban_Laem_01.jpg"
+      ],
+      "description": "วัดคู่บ้านคู่เมืองสมุทรสงคราม เป็นที่ประดิษฐานหลวงพ่อบ้านแหลม พระพุทธรูปศักดิ์สิทธิ์ประจำจังหวัด",
+      "tags": [
+        "วัด",
+        "พระศักดิ์สิทธิ์",
+        "ศาสนา"
+      ]
+    },
+    {
+      "id": 7,
+      "name_th": "ตลาดน้ำท่าคา",
+      "location": "อำเภออัมพวา",
+      "images": [
+        "https://upload.wikimedia.org/wikipedia/commons/d/db/Oyster_omelette.jpg"
+      ],
+      "description": "ตลาดน้ำบรรยากาศแบบดั้งเดิมที่ยังคงวิถีชีวิตชาวบ้านไว้มากที่สุด เปิดเฉพาะวันเสาร์-อาทิตย์ และวันข้างขึ้นข้างแรม",
+      "tags": [
+        "ตลาดน้ำ",
+        "วิถีชีวิต",
+        "ดั้งเดิม"
+      ]
+    },
+    {
+      "id": 8,
+      "name_th": "อาสนวิหารแม่พระบังเกิด (โบสถ์บางนกแขวก)",
+      "location": "อำเภอบางคนที",
+      "images": [
+        "https://upload.wikimedia.org/wikipedia/commons/f/fd/Bang_Nok_Khwaek_-_Nativity_of_Our_Lady_Cathedral_%28June_2022%29_-_img_01.jpg"
+      ],
+      "description": "โบสถ์คริสต์นิกายโรมันคาทอลิกที่มีความเก่าแก่และสวยงามด้วยสถาปัตยกรรมแบบโกธิคตั้งอยู่ริมแม่น้ำแม่กลอง",
+      "tags": [
+        "โบสถ์คริสต์",
+        "สถาปัตยกรรม",
+        "ประวัติศาสตร์"
+      ]
+    },
+    {
+      "id": 9,
+      "name_th": "ตลาดน้ำบางน้อย",
+      "location": "อำเภอบางคนที",
+      "images": [
+        "https://upload.wikimedia.org/wikipedia/commons/9/98/Floating_market.jpg"
+      ],
+      "description": "ตลาดน้ำเก่าแก่ที่มีอายุกว่า 100 ปี บรรยากาศเงียบสงบและเป็นกันเอง เน้นสินค้าและอาหารพื้นบ้าน",
+      "tags": [
+        "ตลาดน้ำ",
+        "วิถีชีวิต",
+        "เก่าแก่"
+      ]
+    },
+    {
+      "id": 10,
+      "name_th": "ศูนย์อนุรักษ์แมวไทยโบราณ",
+      "location": "อำเภออัมพวา",
+      "images": [
+        "https://upload.wikimedia.org/wikipedia/commons/0/0b/%E0%B8%A0%E0%B8%B2%E0%B8%9E%E0%B9%80%E0%B8%A1%E0%B8%B7%E0%B8%AD%E0%B8%87%E0%B8%A3%E0%B8%B2%E0%B8%8A%E0%B8%9A%E0%B8%B8%E0%B8%A3%E0%B8%B5%E0%B8%9A%E0%B8%99%E0%B9%80%E0%B8%82%E0%B8%B2%E0%B9%81%E0%B8%81%E0%B9%88%E0%B8%99%E0%B8%88%E0%B8%B1%E0%B8%99%E0%B8%97%E0%B8%A3%E0%B9%8C.jpg"
+      ],
+      "description": "สถานที่อนุรักษ์และเพาะพันธุ์แมวไทยโบราณหายาก เช่น แมววิเชียรมาศ, แมวสีสวาด, และแมวศุภลักษณ์",
+      "tags": [
+        "สัตว์",
+        "อนุรักษ์",
+        "พิพิธภัณฑ์"
+      ]
+    },
+    {
+      "id": 11,
+      "name_th": "วัดอัมพวันเจติยาราม",
+      "location": "อำเภออัมพวา",
+      "images": [
+        "https://upload.wikimedia.org/wikipedia/commons/d/d2/Wat_Amphawan_Chetiyaram_%282022-06%29_-_img_01.jpg"
+      ],
+      "description": "พระอารามหลวงชั้นโท ที่สร้างขึ้นในสมัยรัชกาลที่ 1 และเชื่อว่าเป็นสถานที่พระราชสมภพของรัชกาลที่ 2",
+      "tags": [
+        "วัด",
+        "ประวัติศาสตร์",
+        "พระอารามหลวง"
+      ]
+    },
+    {
+      "id": 12,
+      "name_th": "โครงการอัมพวา ชัยพัฒนานุรักษ์",
+      "location": "อำเภออัมพวา",
+      "images": [
+        "https://upload.wikimedia.org/wikipedia/commons/9/98/Floating_market.jpg"
+      ],
+      "description": "โครงการในพระราชดำริสมเด็จพระเทพฯ เพื่อฟื้นฟูวิถีชีวิตชาวอัมพวา และเป็นศูนย์รวมผลิตภัณฑ์ท้องถิ่น",
+      "tags": [
+        "โครงการหลวง",
+        "เศรษฐกิจพอเพียง",
+        "ชุมชน"
+      ]
+    },
+    {
+      "id": 13,
+      "name_th": "สะพานแขวนวัดใหญ่",
+      "location": "อำเภอเมืองสมุทรสงคราม",
+      "images": [
+        "https://upload.wikimedia.org/wikipedia/commons/e/e4/Buses_at_Pak_Khlong_Talat_Bus_Terminal.jpg"
+      ],
+      "description": "สะพานแขวนขนาดเล็กสำหรับเดินข้ามแม่น้ำแม่กลอง ใกล้กับวัดใหญ่ เป็นจุดชมวิวแม่น้ำที่สวยงาม",
+      "tags": [
+        "จุดชมวิว",
+        "สะพาน",
+        "แม่น้ำ"
+      ]
+    },
+    {
+      "id": 14,
+      "name_th": "ตลาดน้ำดำเนินสะดวก",
+      "location": "ติดต่อกับราชบุรี",
+      "images": [
+        "https://upload.wikimedia.org/wikipedia/commons/3/3f/%E0%B8%95%E0%B8%A5%E0%B8%B2%E0%B8%94%E0%B8%99%E0%B9%89%E0%B8%B3%E0%B8%94%E0%B8%B3%E0%B9%80%E0%B8%99%E0%B8%B4%E0%B8%99%E0%B8%AA%E0%B8%B0%E0%B8%94%E0%B8%A7%E0%B8%81.jpg"
+      ],
+      "description": "ตลาดน้ำที่เปิดทุกวันและมีชีวิตชีวามากที่สุดแห่งหนึ่ง แม้จะอยู่คาบเกี่ยวกับราชบุรี แต่นับเป็นจุดเชื่อมต่อการท่องเที่ยวที่สำคัญ",
+      "tags": [
+        "ตลาดน้ำ",
+        "ท่องเที่ยว",
+        "คลอง"
+      ]
+    },
+    {
+      "id": 15,
+      "name_th": "นาเกลือสมุทรสงคราม",
+      "location": "พื้นที่ชายฝั่ง",
+      "images": [
+        "https://upload.wikimedia.org/wikipedia/commons/a/a2/Rama_II_road_at_Central_Rama_II.jpg"
+      ],
+      "description": "แหล่งผลิตเกลือทะเลที่สำคัญของประเทศ มีทิวทัศน์นาเกลือที่สวยงาม สามารถแวะถ่ายรูปและซื้อผลิตภัณฑ์เกลือได้",
+      "tags": [
+        "ธรรมชาติ",
+        "เกษตรกรรม",
+        "ทิวทัศน์"
+      ]
+    },
+    {
+      "id": 16,
+      "name_th": "บ้านแมวไทยโบราณ (สุนทรี)",
+      "location": "อำเภออัมพวา",
+      "images": [
+        "https://upload.wikimedia.org/wikipedia/commons/0/0b/%E0%B8%A0%E0%B8%B2%E0%B8%9E%E0%B9%80%E0%B8%A1%E0%B8%B7%E0%B8%AD%E0%B8%87%E0%B8%A3%E0%B8%B2%E0%B8%8A%E0%B8%9A%E0%B8%B8%E0%B8%A3%E0%B8%B5%E0%B8%9A%E0%B8%99%E0%B9%80%E0%B8%82%E0%B8%B2%E0%B9%81%E0%B8%81%E0%B9%88%E0%B8%99%E0%B8%88%E0%B8%B1%E0%B8%99%E0%B8%97%E0%B8%A3%E0%B9%8C.jpg"
+      ],
+      "description": "ศูนย์การเรียนรู้และอนุรักษ์แมวไทยสายพันธุ์แท้ จัดแสดงแมวไทยหายาก เช่น แมววิเชียรมาศ แมวสีสวาด",
+      "tags": [
+        "สัตว์",
+        "อนุรักษ์",
+        "พิพิธภัณฑ์"
+      ]
+    },
+    {
+      "id": 17,
+      "name_th": "วัดท้ายหาด",
+      "location": "อำเภอเมืองสมุทรสงคราม",
+      "images": [
+        "https://upload.wikimedia.org/wikipedia/commons/c/c1/%E0%B8%9E%E0%B8%A3%E0%B8%B025%E0%B8%A8%E0%B8%95%E0%B8%A7%E0%B8%A3%E0%B8%A3%E0%B8%A9-%E0%B9%80%E0%B8%99%E0%B8%B7%E0%B9%89%E0%B8%AD%E0%B8%94%E0%B8%B4%E0%B8%99.jpg"
+      ],
+      "description": "วัดริมแม่น้ำที่มีโบสถ์และวิหารเก่าแก่ สถาปัตยกรรมสวยงาม เป็นที่นิยมในการทำบุญ",
+      "tags": [
+        "วัด",
+        "ริมแม่น้ำ"
+      ]
+    },
+    {
+      "id": 18,
+      "name_th": "บ้านสาหร่าย",
+      "location": "อำเภออัมพวา",
+      "images": [
+        "https://upload.wikimedia.org/wikipedia/commons/0/03/Don_Hoi_Lot_submerged_trees.jpg"
+      ],
+      "description": "ชุมชนที่ยังคงวิถีชีวิตดั้งเดิมริมคลอง มีการทำสาหร่าย และเป็นแหล่งเรียนรู้วัฒนธรรมพื้นบ้าน",
+      "tags": [
+        "ชุมชน",
+        "วิถีชีวิต",
+        "วัฒนธรรม"
+      ]
+    },
+    {
+      "id": 19,
+      "name_th": "ศาลเจ้าพ่อหลักเมือง (ตลาดน้ำดำเนินสะดวก)",
+      "location": "อำเภอดำเนินสะดวก",
+      "images": [
+        "https://upload.wikimedia.org/wikipedia/commons/0/0b/%E0%B8%A0%E0%B8%B2%E0%B8%9E%E0%B9%80%E0%B8%A1%E0%B8%B7%E0%B8%AD%E0%B8%87%E0%B8%A3%E0%B8%B2%E0%B8%8A%E0%B8%9A%E0%B8%B8%E0%B8%A3%E0%B8%B5%E0%B8%9A%E0%B8%99%E0%B9%80%E0%B8%82%E0%B8%B2%E0%B9%81%E0%B8%81%E0%B9%88%E0%B8%99%E0%B8%88%E0%B8%B1%E0%B8%99%E0%B8%97%E0%B8%A3%E0%B9%8C.jpg"
+      ],
+      "description": "ศาลเจ้าจีนที่ตั้งอยู่กลางตลาดน้ำดำเนินสะดวก เป็นศูนย์รวมจิตใจของพ่อค้าแม่ค้าชาวจีนในพื้นที่",
+      "tags": [
+        "ศาลเจ้า",
+        "จีน",
+        "ศาสนา"
+      ]
+    },
+    {
+      "id": 20,
+      "name_th": "ตลาดน้ำบางนกแขวก",
+      "location": "อำเภอบางคนที",
+      "images": [
+        "https://upload.wikimedia.org/wikipedia/commons/8/8a/Bang_Nok_Khwaek_-_Nativity_of_Our_Lady_Cathedral_%28June_2022%29_-_img_20.jpg"
+      ],
+      "description": "ตลาดน้ำเก่าแก่ที่เงียบสงบ ใกล้กับอาสนวิหารแม่พระบังเกิด มีสินค้าเกษตรอินทรีย์และอาหารพื้นบ้าน",
+      "tags": [
+        "ตลาดน้ำ",
+        "วิถีชีวิต",
+        "อาหาร"
+      ]
+    },
+    {
+      "id": 21,
+      "name_th": "วัดเขายี่สาร (เพชรบุรี/สมุทรสงคราม)",
+      "location": "รอยต่อสมุทรสงคราม/เพชรบุรี",
+      "images": [
+        "https://upload.wikimedia.org/wikipedia/commons/9/98/Floating_market.jpg"
+      ],
+      "description": "วัดเก่าแก่บนยอดเขา มีรอยพระพุทธบาทจำลอง และสามารถมองเห็นทัศนียภาพของพื้นที่สามน้ำได้",
+      "tags": [
+        "วัด",
+        "จุดชมวิว",
+        "รอยพระพุทธบาท"
+      ]
+    },
+    {
+      "id": 22,
+      "name_th": "สวนลิ้นจี่บางคนที",
+      "location": "อำเภอบางคนที",
+      "images": [
+        "https://upload.wikimedia.org/wikipedia/commons/6/63/Nativity_of_Our_Lady_Cathedral%2C_Bang_Nok_Kwaek%2C_Samut_Songkhram.jpg"
+      ],
+      "description": "แหล่งปลูกลิ้นจี่พันธุ์ค่อมที่มีชื่อเสียงที่สุดในประเทศไทย โดยเฉพาะช่วงเดือนเมษายนถึงพฤษภาคม",
+      "tags": [
+        "เกษตรกรรม",
+        "สวนผลไม้",
+        "ตามฤดูกาล"
+      ]
+    },
+    {
+      "id": 23,
+      "name_th": "ตลาดปลาแม่กลอง",
+      "location": "อำเภอเมืองสมุทรสงคราม",
+      "images": [
+        "https://upload.wikimedia.org/wikipedia/commons/9/98/Floating_market.jpg"
+      ],
+      "description": "แหล่งซื้อขายอาหารทะเลสดๆ ที่ใหญ่ที่สุดแห่งหนึ่งในจังหวัด ราคาย่อมเยาและมีของทะเลหลากหลายชนิด",
+      "tags": [
+        "ตลาด",
+        "อาหารทะเล",
+        "วิถีชีวิต"
+      ]
+    },
+    {
+      "id": 24,
+      "name_th": "สวนมะพร้าวน้ำหอม",
+      "location": "ทั่วจังหวัด",
+      "images": [
+        "https://upload.wikimedia.org/wikipedia/commons/3/32/Cocos_nucifera_-_K%C3%B6hler%E2%80%93s_Medizinal-Pflanzen-187.jpg"
+      ],
+      "description": "สมุทรสงครามเป็นแหล่งปลูกมะพร้าวน้ำหอมคุณภาพดี มีหลายสวนที่เปิดให้นักท่องเที่ยวเข้าชมและซื้อผลผลิต",
+      "tags": [
+        "เกษตรกรรม",
+        "สวนผลไม้",
+        "มะพร้าว"
+      ]
+    },
+    {
+      "id": 25,
+      "name_th": "วัดอินทาราม",
+      "location": "อำเภออัมพวา",
+      "images": [
+        "https://upload.wikimedia.org/wikipedia/commons/b/b1/Mhaaud_Church_at_Intaram1.JPG"
+      ],
+      "description": "วัดที่มีเจดีย์และสถาปัตยกรรมแบบไทยประยุกต์ ตั้งอยู่ใกล้ตลาดน้ำอัมพวา",
+      "tags": [
+        "วัด",
+        "ศาสนา"
+      ]
+    },
+    {
+      "id": 26,
+      "name_th": "ศาลเจ้าพ่อกวนอู",
+      "location": "อำเภอเมืองสมุทรสงคราม",
+      "images": [
+        "https://upload.wikimedia.org/wikipedia/commons/f/f6/View_of_Hat_Yai_City_%28I%29.jpg"
+      ],
+      "description": "ศาลเจ้าจีนที่คนไทยเชื้อสายจีนในจังหวัดให้ความเคารพนับถือ มีงานเทศกาลที่คึกคักในช่วงเทศกาลสำคัญ",
+      "tags": [
+        "ศาลเจ้า",
+        "จีน",
+        "ศาสนา"
+      ]
+    },
+    {
+      "id": 27,
+      "name_th": "วัดบางสะแก",
+      "location": "อำเภอบางคนที",
+      "images": [
+        "https://upload.wikimedia.org/wikipedia/commons/9/94/%E0%B8%A7%E0%B8%B1%E0%B8%94%E0%B8%9A%E0%B8%B2%E0%B8%87%E0%B8%AA%E0%B8%B0%E0%B9%81%E0%B8%81%E0%B8%99%E0%B8%AD%E0%B8%81_%E0%B9%80%E0%B8%82%E0%B8%95%E0%B8%98%E0%B8%99%E0%B8%9A%E0%B8%B8%E0%B8%A3%E0%B8%B5_%E0%B8%81%E0%B8%A3%E0%B8%B8%E0%B8%87%E0%B9%80%E0%B8%97%E0%B8%9E%E0%B8%A1%E0%B8%AB%E0%B8%B2%E0%B8%99%E0%B8%84%E0%B8%A3_%282%29.jpg"
+      ],
+      "description": "วัดเก่าแก่อีกแห่งในบางคนที มีโบราณวัตถุและพระพุทธรูปที่ชาวบ้านนับถือ",
+      "tags": [
+        "วัด",
+        "ศาสนา"
+      ]
+    },
+    {
+      "id": 28,
+      "name_th": "วัดช่องลม",
+      "location": "อำเภอเมืองสมุทรสงคราม",
+      "images": [
+        "https://upload.wikimedia.org/wikipedia/commons/1/11/Wat_Chong_Lom.jpg"
+      ],
+      "description": "วัดเก่าแก่ริมแม่น้ำแม่กลอง บรรยากาศเงียบสงบ เหมาะแก่การทำบุญและชมวิว",
+      "tags": [
+        "วัด",
+        "ริมแม่น้ำ"
+      ]
+    },
+    {
+      "id": 29,
+      "name_th": "ตลาดปลาสดปากอ่าว",
+      "location": "ดอนหอยหลอด",
+      "images": [
+        "https://upload.wikimedia.org/wikipedia/commons/4/40/%E0%B8%AD%E0%B9%88%E0%B8%B2%E0%B8%A7%E0%B8%9A%E0%B8%B2%E0%B8%87%E0%B8%95%E0%B8%B0%E0%B8%9A%E0%B8%B9%E0%B8%99.jpg"
+      ],
+      "description": "ตลาดที่ขายปลาและอาหารทะเลที่เพิ่งจับขึ้นมาใหม่ๆ จากทะเลปากอ่าว เหมาะสำหรับผู้ที่ชื่นชอบอาหารทะเลสด",
+      "tags": [
+        "ตลาด",
+        "อาหารทะเล",
+        "ริมทะเล"
+      ]
+    },
+    {
+      "id": 30,
+      "name_th": "สะพานสมเด็จพระพุทธเลิศหล้านภาลัย",
+      "location": "อำเภอเมืองสมุทรสงคราม",
+      "images": [
+        "https://upload.wikimedia.org/wikipedia/commons/a/a2/Rama_II_road_at_Central_Rama_II.jpg"
+      ],
+      "description": "สะพานข้ามแม่น้ำแม่กลอง เชื่อมระหว่างฝั่งตัวเมืองกับฝั่งดอนหอยหลอด เป็นจุดถ่ายภาพทิวทัศน์ยามเย็น",
+      "tags": [
+        "จุดชมวิว",
+        "สะพาน",
+        "แม่น้ำ"
+      ]
     }
   ]
 }
