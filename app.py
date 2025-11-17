@@ -1,6 +1,9 @@
 ﻿"""Flask app for Samut Songkhram tourism. GPT (OPENAI_MODEL, default: gpt-5)."""
 
-from flask import Flask, render_template, request, jsonify
+import json
+import os
+
+from flask import Flask, render_template, request, jsonify, Response
 from flask_cors import CORS
 from chat import chat_with_bot, get_chat_response
 from face_detection import detect_faces_from_base64
@@ -12,6 +15,16 @@ load_dotenv()
 
 app = Flask(__name__)
 CORS(app)
+
+FIREBASE_ENV_MAP = {
+    'apiKey': 'FIREBASE_API_KEY',
+    'authDomain': 'FIREBASE_AUTH_DOMAIN',
+    'projectId': 'FIREBASE_PROJECT_ID',
+    'storageBucket': 'FIREBASE_STORAGE_BUCKET',
+    'messagingSenderId': 'FIREBASE_MESSAGING_SENDER_ID',
+    'appId': 'FIREBASE_APP_ID',
+    'databaseURL': 'FIREBASE_DATABASE_URL',
+}
 
 @app.route('/')
 def index():
@@ -146,6 +159,24 @@ def api_face_detect():
     except Exception as err:
         print(f"[ERROR] /api/face-detect failed: {err}")
         return jsonify({'success': False, 'error': 'Face detection failed'}), 500
+
+
+@app.route('/firebase_config.js')
+def firebase_config():
+    config = {}
+    for key, env_name in FIREBASE_ENV_MAP.items():
+        value = os.getenv(env_name)
+        if value:
+            config[key] = value
+
+    if not config.get('apiKey'): 
+        body = "console.warn('Firebase configuration missing; auth disabled.');\nwindow.FIREBASE_CONFIG = null;"
+    else:
+        body = f"window.FIREBASE_CONFIG = {json.dumps(config, ensure_ascii=False)};"
+
+    response = Response(body, mimetype='application/javascript')
+    response.headers['Cache-Control'] = 'no-store, no-cache, must-revalidate, max-age=0'
+    return response
 
 @app.route('/health')
 def health_check():
