@@ -39,7 +39,6 @@
         <div class="nav-links">
           <a href="/" class="nav-link">หน้าแรก</a>
           <a href="/chat" class="nav-link active">สนทนากับน้องปลาทู</a>
-          <a href="/guide" class="nav-link">คู่มือท่องเที่ยว</a>
         </div>
         <div class="nav-auth">
           <div id="guestControls" class="nav-guest">
@@ -87,11 +86,10 @@
           placeholder="พิมพ์หรือพูดสิ่งที่อยากรู้ เช่น กรุงเทพ 3 วัน 2 คืน" aria-label="ข้อความถึงน้องปลาทู">
         <div class="composer-actions">
           <button type="button" id="mic-button" class="composer-button" aria-label="เริ่มฟังเสียง">🎤</button>
-          <label for="chatImageInput" class="composer-button file-button" aria-label="แนบรูปแรงบันดาลใจ">📎</label>
-          <span id="chatImagePreview" class="file-name" aria-live="polite">ยังไม่ได้เลือกไฟล์</span>
+          <span id="chatImagePreview" class="file-name" aria-live="polite" hidden></span>
           <button type="submit" id="send-button" class="send-button" aria-label="ส่งข้อความ">ส่ง</button>
         </div>
-        <input id="chatImageInput" type="file" class="visually-hidden" accept="image/*" capture="environment">
+        <!-- Removed file attachment label & input per request -->
       </form>
       <div class="chat-disclaimer">
         <p>น้องปลาทูอาจให้ข้อมูลที่ไม่ถูกต้องได้ กรุณาตรวจสอบข้อมูลสำคัญอีกครั้ง</p>
