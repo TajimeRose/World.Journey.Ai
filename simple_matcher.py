@@ -68,6 +68,15 @@ class SimpleMatcher:
             "คลองช่อง", "khlong chong", "ตลาดน้ำ", "floating market", 
             "ตลาดร่มหุบ", "maeklong", "เที่ยวสมุทรสงคราม"
         ]
+
+    def topic_keywords(self, topic):
+        """Return the keyword list for a given topic (copy to avoid mutation)."""
+        if not topic:
+            return []
+        keywords = self.enhanced_keywords.get(topic)
+        if not keywords:
+            return []
+        return list(keywords)
     
     def find_best_match(self, query: str, threshold: float = 0.3):
         """Find best matching topic using enhanced keyword matching"""
@@ -159,6 +168,27 @@ class FlexibleMatcher:
                 print(f"[ERROR] Semantic detection failed, using fallback: {e}")
         
         return self.simple_matcher.is_samutsongkhram_related(query, threshold)
+
+    def get_topic_keywords(self, topic):
+        """Expose topic keywords from whichever matcher is available."""
+        if not topic:
+            return []
+
+        keywords = []
+        keywords.extend(self.simple_matcher.topic_keywords(topic))
+
+        if self.semantic_matcher and hasattr(self.semantic_matcher, "knowledge_areas"):
+            keywords.extend(self.semantic_matcher.knowledge_areas.get(topic, []))
+
+        deduped = []
+        seen = set()
+        for keyword in keywords:
+            normalized = keyword.lower()
+            if normalized in seen:
+                continue
+            seen.add(normalized)
+            deduped.append(keyword)
+        return deduped
 
 # Test function
 def test_flexible_matcher():

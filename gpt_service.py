@@ -73,6 +73,7 @@ class GPTService:
             status_note = self._build_context_status_note(data_status, bool(context_data))
             preference_note = self._build_preference_note()
             search_instruction = self._build_search_instruction(language)
+            guardrail_note = self._context_guardrail(language, len(context_data))
 
             user_parts = [f"User Query: {user_query}"]
             if intent:
@@ -83,6 +84,8 @@ class GPTService:
                 user_parts.append(preference_note)
             if search_instruction:
                 user_parts.append(search_instruction)
+            if guardrail_note:
+                user_parts.append(guardrail_note)
             user_parts.append(data_context)
             user_message = "\n\n".join(part for part in user_parts if part)
 
@@ -190,6 +193,10 @@ class GPTService:
             if detail:
                 context_parts.append(f"Description: {detail}")
 
+            entry_description = item.get("description")
+            if entry_description and entry_description != detail:
+                context_parts.append(f"Summary: {entry_description}")
+
             opening_hours = place_info.get("opening_hours")
             if opening_hours:
                 context_parts.append(f"Opening Hours: {opening_hours}")
@@ -198,10 +205,45 @@ class GPTService:
             phones = contact.get("phones") or []
             if phones:
                 context_parts.append(f"Contact: {', '.join(phones)}")
+            socials = contact.get("socials")
+            if socials:
+                if isinstance(socials, list):
+                    context_parts.append(f"Social: {', '.join(socials[:3])}")
+                else:
+                    context_parts.append(f"Social: {socials}")
 
             category = item.get("category") or place_info.get("category_description")
             if category:
                 context_parts.append(f"Category: {category}")
+
+            best_time = item.get("best_time") or place_info.get("best_time")
+            if best_time:
+                context_parts.append(f"Best Time: {best_time}")
+
+            price = item.get("price_range") or place_info.get("price") or place_info.get("ticket_price")
+            if price:
+                context_parts.append(f"Cost: {price}")
+
+            tips = item.get("tips") or place_info.get("tips")
+            if tips:
+                if isinstance(tips, list):
+                    context_parts.append(f"Tips: {'; '.join(str(tip) for tip in tips[:3])}")
+                else:
+                    context_parts.append(f"Tips: {tips}")
+
+            highlights = item.get("highlights") or place_info.get("highlights")
+            if highlights:
+                if isinstance(highlights, list):
+                    context_parts.append(f"Highlights: {'; '.join(str(h) for h in highlights[:3])}")
+                else:
+                    context_parts.append(f"Highlights: {highlights}")
+
+            activities = item.get("activities") or place_info.get("activities")
+            if activities:
+                if isinstance(activities, list):
+                    context_parts.append(f"Activities: {'; '.join(str(a) for a in activities[:3])}")
+                else:
+                    context_parts.append(f"Activities: {activities}")
 
             lat = location.get("latitude")
             lon = location.get("longitude")
@@ -263,6 +305,28 @@ class GPTService:
         return (
             "Combine any reliable knowledge you have with the verified Samut Songkhram dataset below, "
             "favoring the dataset when conflicts arise and labelling additional insights as general knowledge."
+        )
+
+    def _context_guardrail(self, language: str, context_count: int) -> str:
+        if context_count > 0:
+            if language == "th":
+                return (
+                    f"คุณมีข้อมูลยืนยันแล้ว {context_count} รายการจากฐานข้อมูลสมุทรสงคราม "
+                    "ให้อ้างอิงข้อมูลเหล่านี้เป็นหลัก จัดระเบียบคำแนะนำให้เกี่ยวข้องกับทุกจุด และหากต้องเพิ่มข้อมูลทั่วไปต้องระบุว่าเป็นข้อมูลเสริม"
+                )
+            return (
+                f"You have {context_count} verified Samut Songkhram entries. "
+                "Base recommendations on them, cover each entry clearly, and explicitly label any extra general-knowledge hints."
+            )
+
+        if language == "th":
+            return (
+                "ยังไม่มีข้อมูลยืนยันจากฐานข้อมูลให้ใช้อ้างอิง ให้แจ้งข้อจำกัดนี้กับผู้ใช้ "
+                "พร้อมตอบด้วยความรู้ทั่วไปที่เชื่อถือได้เท่านั้น และเชิญชวนให้ผู้ใช้ระบุรายละเอียดเพิ่มเติม"
+            )
+        return (
+            "No verified dataset is available for this turn. Make the limitation explicit, "
+            "answer with trusted general knowledge only, and invite the user to share more specifics."
         )
 
     def _build_fallback_payload(

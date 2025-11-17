@@ -1,10 +1,12 @@
 """GPT chatbot for Samut Songkhram tourism. OPENAI_MODEL (default: gpt-5)."""
 
+from __future__ import annotations
+
 import hashlib
 import json
 import re
 from pathlib import Path
-from typing import Any, Dict, List, Optional
+from typing import Any, Dict, List, Optional, TYPE_CHECKING
 
 from world_journey_ai.configs import PromptRepo
 
@@ -15,6 +17,19 @@ except Exception as exc:
     print(f"[WARN] GPT service import failed: {exc}")
     GPT_AVAILABLE = False
     GPTService = None
+
+try:
+    from simple_matcher import FlexibleMatcher
+    FLEXIBLE_MATCHER_AVAILABLE = True
+except Exception as exc:
+    print(f"[WARN] Flexible matcher unavailable: {exc}")
+    FLEXIBLE_MATCHER_AVAILABLE = False
+    FlexibleMatcher = None
+
+if TYPE_CHECKING:
+    from simple_matcher import FlexibleMatcher as FlexibleMatcherType
+else:
+    FlexibleMatcherType = Any
 
 PROMPT_REPO = PromptRepo()
 DATA_FILE = Path(__file__).resolve().parent / "world_journey_ai" / "data" / "travel_data.json"
@@ -52,6 +67,7 @@ class TravelChatbot:
         }
         self.dataset_summary = self._build_dataset_summary()
         self.local_reference_terms = self._build_local_reference_terms()
+        self.matching_engine: Optional[FlexibleMatcherType] = self._init_matcher()
 
         if GPT_AVAILABLE and GPTService is not None:
             try:
@@ -63,10 +79,71 @@ class TravelChatbot:
         else:
             print("[WARN] GPT service unavailable")
 
+    def _init_matcher(self) -> Optional[FlexibleMatcherType]:
+        if not FLEXIBLE_MATCHER_AVAILABLE or FlexibleMatcher is None:
+            return None
+        try:
+            return FlexibleMatcher()
+        except Exception as exc:
+            print(f"[WARN] Cannot initialize flexible matcher: {exc}")
+            return None
+
     @staticmethod
     def _detect_language(text: str) -> str:
         thai_chars = sum(1 for ch in text if "\u0e00" <= ch <= "\u0e7f")
         return "th" if thai_chars > max(1, len(text) // 3) else "en"
+
+    def _matcher_analysis(self, query: str) -> Dict[str, Any]:
+        if not query.strip():
+            return {"topic": None, "confidence": 0.0, "keywords": [], "is_local": False}
+        engine = getattr(self, "matching_engine", None)
+        if not engine:
+            return {"topic": None, "confidence": 0.0, "keywords": [], "is_local": False}
+        topic = None
+        confidence = 0.0
+        try:
+            topic, confidence = engine.find_best_match(query)
+        except Exception as exc:
+            print(f"[WARN] Flexible matcher topic detection failed: {exc}")
+        try:
+            is_local = engine.is_samutsongkhram_related(query)
+        except Exception as exc:
+            print(f"[WARN] Flexible matcher locality detection failed: {exc}")
+            is_local = False
+        keywords: List[str] = []
+        if topic:
+            try:
+                keywords = engine.get_topic_keywords(topic)
+            except Exception as exc:
+                print(f"[WARN] Flexible matcher keywords failed: {exc}")
+        # Ensure primitive types for downstream JSON serialization
+        safe_topic = topic if isinstance(topic, str) else (str(topic) if topic else None)
+        safe_confidence = float(confidence or 0.0)
+        safe_local_flag = bool(is_local)
+        return {
+            "topic": safe_topic,
+            "confidence": safe_confidence,
+            "keywords": keywords,
+            "is_local": safe_local_flag,
+        }
+
+    @staticmethod
+    def _merge_keywords(*keyword_sets: List[str]) -> List[str]:
+        merged: List[str] = []
+        seen = set()
+        for keyword_list in keyword_sets:
+            if not keyword_list:
+                continue
+            for keyword in keyword_list:
+                text = str(keyword).strip()
+                if not text:
+                    continue
+                lowered = text.lower()
+                if lowered in seen:
+                    continue
+                seen.add(lowered)
+                merged.append(text)
+        return merged
 
     def _load_travel_data(
         self,
@@ -402,13 +479,20 @@ class TravelChatbot:
             print(f"[WARN] Query interpretation failed: {exc}")
             return {"keywords": [], "places": []}
 
-    def _match_travel_data(self, query: str, keywords: Optional[List[str]] = None, limit: Optional[int] = None) -> List[Dict[str, Any]]:
+    def _match_travel_data(
+        self,
+        query: str,
+        keywords: Optional[List[str]] = None,
+        limit: Optional[int] = None,
+        boost_keywords: Optional[List[str]] = None,
+    ) -> List[Dict[str, Any]]:
         if not self.travel_data:
             return []
         limit = limit or self.match_limit or 5
         normalized = query.lower()
         tokens = [tok for tok in normalized.split() if tok]
         keyword_list = [kw.lower() for kw in (keywords or []) if kw]
+        boost_list = [kw.lower() for kw in (boost_keywords or []) if kw]
         scored: List[tuple[Dict[str, Any], int]] = []
         for entry in self.travel_data:
             text_fields: List[str] = []
@@ -449,6 +533,9 @@ class TravelChatbot:
             for kw in keyword_list:
                 if kw in haystack:
                     score += 3
+            for kw in boost_list:
+                if kw in haystack:
+                    score += 4
             if score > 0:
                 scored.append((entry, score))
         scored.sort(key=lambda item: item[1], reverse=True)
@@ -583,16 +670,60 @@ class TravelChatbot:
                     "about attractions, restaurants, or accommodations!"
                 )
             )
+
+        def summarize_entry(entry: Dict[str, Any], idx: int) -> str:
+            name = entry.get("name") or entry.get("place_name") or "Unknown"
+            location = entry.get("city") or entry.get("location", {}).get("district")
+            description = (
+                entry.get("description")
+                or entry.get("place_information", {}).get("detail")
+                or ""
+            )
+            highlights = entry.get("highlights") or entry.get("place_information", {}).get("highlights") or []
+            best_time = entry.get("best_time") or entry.get("place_information", {}).get("best_time")
+            tips = entry.get("tips") or entry.get("place_information", {}).get("tips")
+
+            def join_highlights(items: Any) -> str:
+                if isinstance(items, list):
+                    return ", ".join(str(item) for item in items[:3])
+                return str(items)
+
+            if language == "th":
+                lines = [f"{idx}. {name}"]
+                if location:
+                    lines.append(f"   พื้นที่: {location}")
+                if description:
+                    lines.append(f"   จุดเด่น: {description}")
+                if highlights:
+                    lines.append(f"   ไฮไลต์: {join_highlights(highlights)}")
+                if best_time:
+                    lines.append(f"   เวลาแนะนำ: {best_time}")
+                if tips:
+                    lines.append(f"   เคล็ดลับ: {join_highlights(tips)}")
+            else:
+                lines = [f"{idx}. {name}"]
+                if location:
+                    lines.append(f"   Area: {location}")
+                if description:
+                    lines.append(f"   Why visit: {description}")
+                if highlights:
+                    lines.append(f"   Highlights: {join_highlights(highlights)}")
+                if best_time:
+                    lines.append(f"   Best time: {best_time}")
+                if tips:
+                    lines.append(f"   Tips: {join_highlights(tips)}")
+            return "\n".join(lines)
+
         intro_template = self._prompt_path(
             language,
             ("simple_response", "intro"),
             default_th=(
-                "“น้องปลาทู” จะให้ข้อมูลได้ชัดเจนและครอบคลุม หากถามข้อมูลในจังหวัดสมุทรสงครามค่ะ ขออภัยด้วยนะคะ\n\n"
-                "พบข้อมูลที่คุณสนใจ {count} รายการค่ะ คุณสามารถดูรายละเอียดเพิ่มเติมด้านล่างนะคะ:"
+                "“น้องปลาทู” ได้เตรียมข้อมูลจากฐานข้อมูลสมุทรสงครามมาให้ {count} สถานที่ค่ะ "
+                "รายละเอียดแต่ละจุดอยู่ด้านล่างเลยนะคะ:"
             ),
             default_en=(
-                "Hello! I'm NongPlaToo, your Samut Songkhram travel guide \n\n"
-                "I found {count} place(s) that might interest you. Check out the details below:"
+                "Here are {count} verified Samut Songkhram spots that match your question. "
+                "Check the details below:"
             )
         )
         outro = self._prompt_path(
@@ -601,7 +732,23 @@ class TravelChatbot:
             default_th="\nหากต้องการข้อมูลเพิ่มเติม สามารถถามเพิ่มได้เลยค่ะ 😊",
             default_en="\nFeel free to ask for more information! 😊"
         )
-        return f"{intro_template.format(count=len(context_data))}{outro}"
+
+        max_entries = 3
+        summaries = [
+            summarize_entry(entry, idx)
+            for idx, entry in enumerate(context_data[:max_entries], 1)
+        ]
+        if len(context_data) > max_entries:
+            remaining_note = (
+                f"\n... และยังมีอีก {len(context_data) - max_entries} สถานที่ที่เกี่ยวข้องค่ะ"
+                if language == "th"
+                else f"\n... plus {len(context_data) - max_entries} more related places."
+            )
+        else:
+            remaining_note = ""
+
+        body = "\n\n".join(summaries)
+        return f"{intro_template.format(count=len(context_data))}\n\n{body}{remaining_note}{outro}"
 
     def _prompt(self, key: str, language: str, *, default_th: str = "", default_en: str = "") -> str:
         return self._prompt_path(language, (key,), default_th=default_th, default_en=default_en)
@@ -626,6 +773,20 @@ class TravelChatbot:
         if isinstance(node, str):
             return node
         return default_value
+
+    def _intent_from_topic(self, topic: Optional[str]) -> str:
+        if not topic:
+            return "general"
+        mapping = {
+            "general_travel": "attractions",
+            "amphawa": "attractions",
+            "bang_kung": "attractions",
+            "khlong_khon": "attractions",
+            "food": "restaurants",
+            "accommodation": "accommodation",
+            "transportation": "transportation",
+        }
+        return mapping.get(topic, "general")
 
     def get_response(self, user_message: str, user_id: str = "default") -> Dict[str, Any]:
         language = self._detect_language(user_message)
@@ -663,8 +824,17 @@ class TravelChatbot:
             }
 
         analysis = self._interpret_query_keywords(user_message) if trimmed_query else {"keywords": [], "places": []}
-        keyword_pool = (analysis.get("keywords") or []) + (analysis.get("places") or [])
-        matched_data = self._match_travel_data(user_message, keywords=keyword_pool)
+        matcher_signals = self._matcher_analysis(user_message)
+        keyword_pool = self._merge_keywords(
+            analysis.get("keywords") or [],
+            analysis.get("places") or [],
+            matcher_signals.get("keywords") or [],
+        )
+        matched_data = self._match_travel_data(
+            user_message,
+            keywords=keyword_pool,
+            boost_keywords=matcher_signals.get("keywords"),
+        )
         trip_matches = self._select_trip_guides_for_query(user_message)
         if trip_matches:
             matched_data = self._merge_structured_data(matched_data, trip_matches)
@@ -673,10 +843,13 @@ class TravelChatbot:
         includes_local_term = self._contains_local_reference(user_message)
         if not includes_local_term:
             includes_local_term = any(self._contains_local_reference(str(keyword)) for keyword in keyword_pool)
+        if matcher_signals.get("is_local"):
+            includes_local_term = True
         mentions_other_province = (
             not includes_local_term
             and self._mentions_other_province(user_message, keyword_pool, analysis.get("places", []))
         )
+        detected_intent = self._intent_from_topic(matcher_signals.get("topic"))
         data_status = {
             'success': bool(matched_data),
             'message': (
@@ -687,7 +860,13 @@ class TravelChatbot:
             'data_available': bool(matched_data),
             'source': 'local_json',
             'preference_note': preference_note,
-            'character_note': character_note
+            'character_note': character_note,
+            'matching_signals': {
+                'topic': matcher_signals.get("topic"),
+                'topic_confidence': round(float(matcher_signals.get("confidence", 0.0)), 3),
+                'is_local': matcher_signals.get("is_local"),
+                'keywords': keyword_pool,
+            },
         }
 
         if mentions_other_province:
@@ -728,7 +907,7 @@ class TravelChatbot:
                     user_query=user_message,
                     context_data=matched_data,
                     data_type='travel',
-                    intent='general',
+                    intent=detected_intent,
                     data_status=data_status
                 )
 
@@ -737,7 +916,7 @@ class TravelChatbot:
                     'structured_data': matched_data,
                     'language': language,
                     'source': gpt_result.get('source', 'openai'),
-                    'intent': 'general',
+                    'intent': detected_intent,
                     'tokens_used': gpt_result.get('tokens_used'),
                     'data_status': data_status,
                     'character_note': character_note
@@ -751,7 +930,7 @@ class TravelChatbot:
                     'structured_data': matched_data,
                     'language': language,
                     'source': 'simple_fallback',
-                    'intent': 'general',
+                    'intent': detected_intent,
                     'gpt_error': str(e),
                     'data_status': data_status
                 }
@@ -762,7 +941,7 @@ class TravelChatbot:
                 'structured_data': matched_data,
                 'language': language,
                 'source': 'simple',
-                'intent': 'general',
+                'intent': detected_intent,
                 'data_status': data_status
             }
 
