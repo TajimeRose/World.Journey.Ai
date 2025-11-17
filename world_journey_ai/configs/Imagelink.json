@@ -1,0 +1,39 @@
+{
+  "province": "สมุทรสงคราม",
+  "places": [
+    {
+      "name_th": "วัดจุฬามณี",
+      "location": "อำเภออัมพวา",
+      "rating": 4.7,
+      "images": [
+        "https://example.com/images/wat-chulamanee/cover.jpg",
+        "https://example.com/images/wat-chulamanee/inside.jpg",
+        "https://example.com/images/wat-chulamanee/night.jpg"
+      ],
+      "description": "วัดริมแม่น้ำแม่กลอง มีพระอุโบสถสีขาวและงานประดับกระจกงดงาม",
+      "tags": ["วัด", "ประวัติศาสตร์", "ศาสนา"]
+    },
+    {
+      "name_th": "วัดบางกุ้ง",
+      "location": "อำเภอบางคนที",
+      "rating": 4.5,
+      "images": [
+        "https://example.com/images/wat-bang-kung/cover.jpg",
+        "https://example.com/images/wat-bang-kung/tree-temple.jpg"
+      ],
+      "description": "โบสถ์ปรกโพธิ์ Unseen Thailand สมัยอยุธยา",
+      "tags": ["โบราณสถาน", "Unseen", "ประวัติศาสตร์"]
+    },
+    {
+      "name_th": "ตลาดน้ำอัมพวา",
+      "location": "อำเภออัมพวา",
+      "rating": 4.6,
+      "images": [
+        "https://example.com/images/amphawa/market.jpg",
+        "https://example.com/images/amphawa/boat-night.jpg"
+      ],
+      "description": "ตลาดน้ำเย็นชื่อดัง พายเรือขายอาหารริมน้ำ สามารถล่องเรือชมหิ่งห้อยได้",
+      "tags": ["ตลาดน้ำ", "ของกิน", "ท่องเที่ยวกลางคืน"]
+    }
+  ]
+}
