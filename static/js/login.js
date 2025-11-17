@@ -156,14 +156,6 @@
         // Don't re-enable the button since we're redirecting
         return;
       }
-<<<<<<< HEAD
-      if (currentMode === 'signup') {
-        window.location.replace('/index.html');
-      } else {
-        window.location.replace('/');
-      }
-=======
->>>>>>> aec3ab6eac1513195f6db8e913f685ff409f7e33
     } catch (error) {
       const message = mapError(error);
       if (generalError) {
