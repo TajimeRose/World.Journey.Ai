@@ -1305,9 +1305,10 @@ class BaseAIEngine:
         for item in self._destinations:
             # build candidate haystack variants (name, english_name, city, synonyms)
             parts = [item.get("name", ""), item.get("city", ""), item.get("description", "")]
-            # include english_name if present
-            if item.get("english_name"):
-                parts.append(item.get("english_name"))
+            # include english_name if present (ensure non-None str for type safety)
+            en_name = item.get("english_name", "")
+            if en_name:
+                parts.append(en_name)
 
             # include province synonyms for the city (if any)
             city = item.get("city", "")
