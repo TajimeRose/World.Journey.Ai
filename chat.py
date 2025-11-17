@@ -35,6 +35,7 @@ PROMPT_REPO = PromptRepo()
 DATA_FILE = Path(__file__).resolve().parent / "world_journey_ai" / "data" / "travel_data.json"
 CONFIG_DIR = Path(__file__).resolve().parent / "world_journey_ai" / "configs"
 SAMUT_PROFILE_FILE = CONFIG_DIR / "SamutSongkhram.json"
+IMAGE_LINK_FILE = CONFIG_DIR / "Imagelink.json"
 TRIP_FILES = {
     "2days1nighttrip": CONFIG_DIR / "2days1nighttrip.json",
     "1daytrip": CONFIG_DIR / "1daytrip.json",
@@ -57,6 +58,7 @@ class TravelChatbot:
         self.character_profile = PROMPT_REPO.get_character_profile()
         self.match_limit = self.runtime_config.get("matching", {}).get("max_matches", 5)
         self.gpt_service: Optional[Any] = None
+        self.image_links = self._load_image_links()
         self.province_profile = self._load_province_profile()
         raw_trip_guides = self._load_trip_guides()
         self.travel_data = self._load_travel_data(raw_trip_guides)
@@ -177,6 +179,41 @@ class TravelChatbot:
                 guides[slug] = entry
         return guides
 
+    def _load_image_links(self) -> Dict[str, List[str]]:
+        payload = self._load_json_content(IMAGE_LINK_FILE)
+        places: List[Dict[str, Any]] = []
+        if isinstance(payload, dict):
+            candidate_list = payload.get("places") or payload.get("data") or payload.get("items")
+            if isinstance(candidate_list, list):
+                places = candidate_list
+        elif isinstance(payload, list):
+            places = payload
+
+        image_map: Dict[str, List[str]] = {}
+        for item in places:
+            if not isinstance(item, dict):
+                continue
+            raw_images = item.get("images")
+            if not isinstance(raw_images, list):
+                continue
+            images = [url.strip() for url in raw_images if isinstance(url, str) and url.strip()]
+            if not images:
+                continue
+            keys = self._make_name_keys(
+                item.get("name_th"),
+                item.get("name_en"),
+                item.get("name"),
+                item.get("place_name"),
+            )
+            for key in keys:
+                if not key:
+                    continue
+                existing = image_map.setdefault(key, [])
+                for image_url in images:
+                    if image_url not in existing:
+                        existing.append(image_url)
+        return image_map
+
     def _transform_trip_data(self, slug: str, payload: Dict[str, Any]) -> Optional[Dict[str, Any]]:
         trip_plan = payload.get("trip_plan", {})
         title = trip_plan.get("title") or payload.get("trip_title") or payload.get("title")
@@ -242,6 +279,81 @@ class TravelChatbot:
         }
         entry = self._standardize_entry(raw_entry, source="trip_json", priority=2)
         return entry
+
+    def _make_name_keys(self, *values: Optional[str]) -> List[str]:
+        keys: List[str] = []
+        for value in values:
+            if not isinstance(value, str):
+                continue
+            for variant in self._name_variations(value):
+                token = self._normalize_name_token(variant)
+                if token and token not in keys:
+                    keys.append(token)
+        return keys
+
+    @staticmethod
+    def _name_variations(value: str) -> List[str]:
+        variants: List[str] = []
+
+        def add_variant(text: Optional[str]) -> None:
+            if not text:
+                return
+            cleaned = text.strip()
+            if cleaned and cleaned not in variants:
+                variants.append(cleaned)
+
+        add_variant(value)
+        if "(" in value:
+            before, _, remainder = value.partition("(")
+            add_variant(before)
+            inner, _, _ = remainder.partition(")")
+            add_variant(inner)
+        if "/" in value:
+            for part in value.split("/"):
+                add_variant(part)
+
+        return variants
+
+    @staticmethod
+    def _normalize_name_token(text: Optional[str]) -> str:
+        if not text:
+            return ""
+        normalized = re.sub(r"[^0-9a-zA-Z\u0E00-\u0E7F]+", "", text.strip().lower())
+        return normalized
+
+    def _apply_image_links(self, entry: Dict[str, Any]) -> None:
+        image_links = getattr(self, "image_links", {})
+        if not image_links:
+            return
+        keys = self._make_name_keys(
+            entry.get("place_name"),
+            entry.get("name"),
+            entry.get("name_th"),
+            entry.get("name_en"),
+        )
+        entry_id = entry.get("id")
+        if isinstance(entry_id, str):
+            normalized_id = self._normalize_name_token(entry_id)
+            if normalized_id:
+                keys.append(normalized_id)
+
+        aggregated: List[str] = []
+        existing_images = entry.get("images")
+        if isinstance(existing_images, list):
+            for url in existing_images:
+                if isinstance(url, str) and url.strip() and url not in aggregated:
+                    aggregated.append(url.strip())
+
+        for key in keys:
+            if not key:
+                continue
+            linked_images = image_links.get(key) or []
+            for url in linked_images:
+                if isinstance(url, str) and url not in aggregated:
+                    aggregated.append(url)
+
+        if aggregated:
+            entry["images"] = aggregated
 
     @staticmethod
     def _summarize_day_plan(day_plan: Dict[str, Any]) -> str:
@@ -374,6 +486,8 @@ class TravelChatbot:
             else:
                 info["category_description"] = normalized.get("category") or "travel"
         normalized["place_information"] = info
+
+        self._apply_image_links(normalized)
 
         if not normalized.get("id"):
             normalized["id"] = self._slugify_identifier(name)

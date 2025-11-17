@@ -154,6 +154,51 @@
     return sentences.length > 0 ? sentences[0] : baseText;
   }
 
+  function buildPlaceGallery(place) {
+    const imageList = (place && Array.isArray(place.images)) ? place.images : [];
+    const validImages = imageList
+      .filter((url) => typeof url === 'string' && url.startsWith('http'))
+      .slice(0, 4);
+    if (!validImages.length) {
+      return null;
+    }
+
+    const gallery = document.createElement('div');
+    gallery.className = 'place-card-gallery';
+
+    const label = document.createElement('p');
+    label.className = 'place-card-gallery-label';
+    label.textContent = 'ภาพเพิ่มเติม';
+    gallery.appendChild(label);
+
+    const grid = document.createElement('div');
+    grid.className = 'place-card-gallery-grid';
+
+    validImages.forEach((url) => {
+      const link = document.createElement('a');
+      link.href = url;
+      link.target = '_blank';
+      link.rel = 'noopener noreferrer';
+      link.className = 'place-card-gallery-item';
+      link.title = 'เปิดภาพในแท็บใหม่';
+
+      const img = document.createElement('img');
+      img.src = url;
+      img.alt = `${place.place_name || place.name || 'ภาพสถานที่'}`;
+      img.loading = 'lazy';
+      link.appendChild(img);
+
+      grid.appendChild(link);
+    });
+
+    if (!grid.childElementCount) {
+      return null;
+    }
+
+    gallery.appendChild(grid);
+    return gallery;
+  }
+
   function createPlaceCard(place) {
     const card = document.createElement('div');
     card.className = 'place-card';
@@ -231,7 +276,8 @@
       place.long_description ||
       descriptionText;
 
-    if (fullDescription) {
+    const gallery = buildPlaceGallery(place);
+    if (fullDescription || gallery) {
       const detailsWrapper = document.createElement('div');
       detailsWrapper.className = 'place-card-details-wrapper';
 
@@ -239,19 +285,32 @@
       detailsToggle.className = 'place-card-details-btn';
       detailsToggle.type = 'button';
       detailsToggle.setAttribute('aria-expanded', 'false');
-      detailsToggle.textContent = 'กดเพื่อดูรายละเอียดเพิ่มเติม';
+      const collapsedLabel = gallery && fullDescription
+        ? 'กดเพื่อดูรายละเอียดและภาพเพิ่มเติม'
+        : gallery
+          ? 'กดเพื่อดูภาพเพิ่มเติม'
+          : 'กดเพื่อดูรายละเอียดเพิ่มเติม';
+      const expandedLabel = gallery ? 'ย่อรายละเอียด/ภาพ' : 'ย่อรายละเอียด';
+      detailsToggle.textContent = collapsedLabel;
 
       const detailsContent = document.createElement('div');
       detailsContent.className = 'place-card-details hidden';
-      detailsContent.textContent = fullDescription;
+
+      if (fullDescription) {
+        const descriptionNode = document.createElement('p');
+        descriptionNode.textContent = fullDescription;
+        detailsContent.appendChild(descriptionNode);
+      }
+
+      if (gallery) {
+        detailsContent.appendChild(gallery);
+      }
 
       detailsToggle.addEventListener('click', () => {
         const isHidden = detailsContent.classList.contains('hidden');
         detailsContent.classList.toggle('hidden');
         detailsToggle.setAttribute('aria-expanded', String(isHidden));
-        detailsToggle.textContent = isHidden
-          ? 'ย่อรายละเอียด'
-          : 'กดเพื่อดูรายละเอียดเพิ่มเติม';
+        detailsToggle.textContent = isHidden ? expandedLabel : collapsedLabel;
       });
 
       detailsWrapper.appendChild(detailsToggle);
