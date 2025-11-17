@@ -147,6 +147,57 @@ class TravelChatbot:
                 merged.append(text)
         return merged
 
+    def _auto_detect_keywords(self, query: str, limit: int = 6) -> List[str]:
+        if not query or not self.travel_data:
+            return []
+        normalized_query = self._normalize_name_token(query)
+        lowered_query = query.lower()
+        detected: List[str] = []
+        seen_tokens: set[str] = set()
+
+        def consider(value: Optional[str]) -> None:
+            if not value or len(detected) >= limit:
+                return
+            for variant in self._name_variations(str(value)):
+                normalized_variant = self._normalize_name_token(variant)
+                lowered_variant = variant.lower()
+                if not normalized_variant or normalized_variant in seen_tokens:
+                    continue
+                if (
+                    normalized_variant and normalized_variant in normalized_query
+                ) or lowered_variant in lowered_query:
+                    seen_tokens.add(normalized_variant)
+                    detected.append(variant.strip())
+                    break
+
+        for entry in self.travel_data:
+            consider(entry.get("place_name"))
+            consider(entry.get("name"))
+            consider(entry.get("name_th"))
+            consider(entry.get("name_en"))
+            consider(entry.get("city"))
+            location = entry.get("location")
+            if isinstance(location, dict):
+                consider(location.get("district"))
+            elif isinstance(location, str):
+                consider(location)
+            if len(detected) >= limit:
+                break
+
+        if len(detected) < limit:
+            for entry in self.travel_data:
+                types = entry.get("type") or []
+                if isinstance(types, str):
+                    types = [types]
+                for type_value in types:
+                    consider(str(type_value))
+                    if len(detected) >= limit:
+                        break
+                if len(detected) >= limit:
+                    break
+
+        return detected
+
     def _load_travel_data(
         self,
         trip_guides: Optional[Dict[str, Dict[str, Any]]] = None,
@@ -944,11 +995,29 @@ class TravelChatbot:
             analysis.get("places") or [],
             matcher_signals.get("keywords") or [],
         )
+        auto_keywords_used = False
+        fallback_keywords: List[str] = []
+        if not keyword_pool:
+            fallback_keywords = self._auto_detect_keywords(user_message)
+            if fallback_keywords:
+                keyword_pool = self._merge_keywords(keyword_pool, fallback_keywords)
+                auto_keywords_used = True
+
         matched_data = self._match_travel_data(
             user_message,
             keywords=keyword_pool,
             boost_keywords=matcher_signals.get("keywords"),
         )
+        if not matched_data and not auto_keywords_used:
+            fallback_keywords = self._auto_detect_keywords(user_message)
+            if fallback_keywords:
+                keyword_pool = self._merge_keywords(keyword_pool, fallback_keywords)
+                matched_data = self._match_travel_data(
+                    user_message,
+                    keywords=keyword_pool,
+                    boost_keywords=matcher_signals.get("keywords"),
+                )
+                auto_keywords_used = True
         trip_matches = self._select_trip_guides_for_query(user_message)
         if trip_matches:
             matched_data = self._merge_structured_data(matched_data, trip_matches)
