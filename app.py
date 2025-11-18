@@ -6,7 +6,7 @@ import os
 from flask import Flask, render_template, request, jsonify, Response
 from flask_cors import CORS
 from chat import chat_with_bot, get_chat_response
-from face_detection import detect_faces_from_base64
+
 import datetime
 from dotenv import load_dotenv
 
@@ -125,41 +125,24 @@ def post_message():
             'intent': result.get('intent'),
             'source': result.get('source'),
             'createdAt': current_time,
-            'fallback': error_flag or result.get('source') in {'simple_fallback', 'simple'}
+            'fallback': error_flag or result.get('source') in {'simple_fallback', 'simple'},
+            'duplicate': result.get('duplicate', False)
         }
-        
+
         response_payload = {
             'success': not error_flag,
             'error': error_flag,
             'message': error_message,
             'assistant': assistant_payload,
-            'data_status': result.get('data_status')
+            'data_status': result.get('data_status'),
+            'duplicate': result.get('duplicate', False)
         }
-        
+
         return jsonify(response_payload)
     
     except Exception as e:
         print(f"[ERROR] /api/messages POST failed: {e}")
         return jsonify({'error': str(e)}), 500
-
-
-@app.route('/api/face-detect', methods=['POST'])
-def api_face_detect():
-    try:
-        data = request.get_json(silent=True) or {}
-        image_b64 = data.get('image')
-        if not image_b64:
-            return jsonify({'success': False, 'error': 'Image data is required'}), 400
-
-        detection = detect_faces_from_base64(image_b64)
-        return jsonify({'success': True, **detection})
-
-    except ValueError as err:
-        return jsonify({'success': False, 'error': str(err)}), 400
-    except Exception as err:
-        print(f"[ERROR] /api/face-detect failed: {err}")
-        return jsonify({'success': False, 'error': 'Face detection failed'}), 500
-
 
 @app.route('/firebase_config.js')
 def firebase_config():

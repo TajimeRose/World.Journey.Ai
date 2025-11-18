@@ -46,11 +46,6 @@
   const toast = document.getElementById('toast');
   const fileInput = document.getElementById('imageInput');
   const fileName = document.getElementById('imagePreview');
-  const faceContainer = document.getElementById('face-detector');
-  const faceVideo = document.getElementById('fd-video');
-  const faceCanvas = document.getElementById('fd-canvas');
-  const faceStatus = document.getElementById('faceStatus');
-  const faceStatusLabel = document.getElementById('faceStatusLabel');
   const mascotRoot = document.getElementById('mascot');
   const mascotSpeech = document.getElementById('speech');
 
@@ -61,12 +56,6 @@
   const recognition = SpeechRecognition ? new SpeechRecognition() : null;
   let isRecording = false;
   let toastTimer = null;
-  const FACE_CAPTURE_INTERVAL = 2000;
-  let faceStream = null;
-  let faceTimer = null;
-  let faceInFlight = false;
-  let faceActivated = false;
-  let lastFaceStatus = null;
   const MASCOT_MESSAGES = [
     'สวัสดีค่ะ มีอะไรให้น้องปลาทูช่วยไหมคะ?',
     'วันนี้อยากเที่ยวที่ไหนบ้างน่ะ?',
@@ -147,189 +136,6 @@
     micButton.setAttribute('aria-label', recording ? 'หยุดฟังเสียง' : 'เริ่มฟังเสียง');
   }
 
-  function stopFaceDetection() {
-    if (faceTimer) {
-      window.clearInterval(faceTimer);
-      faceTimer = null;
-    }
-    faceInFlight = false;
-    if (faceStream) {
-      faceStream.getTracks().forEach((track) => track.stop());
-      faceStream = null;
-    }
-    if (faceVideo) {
-      faceVideo.srcObject = null;
-    }
-    if (faceContainer) {
-      faceContainer.hidden = true;
-    }
-    faceActivated = false;
-    lastFaceStatus = null;
-    updateFaceIndicator('idle');
-    window.clearTimeout(mascotTimer);
-    if (mascotSpeech) {
-      mascotSpeech.classList.add('is-hidden');
-    }
-  }
-
-  function updateFaceIndicator(statusKey, detail) {
-    if (!faceStatus || !faceStatusLabel) {
-      return;
-    }
-    const status = statusKey || 'idle';
-    faceStatus.dataset.status = status;
-
-    let label = 'กล้องพร้อมตรวจจับ';
-    if (status === 'scanning') {
-      label = 'กำลังตรวจจับใบหน้า...';
-    } else if (status === 'detected') {
-      const count = detail?.count ?? detail?.faces?.length ?? 0;
-      label = count > 1 ? `พบใบหน้าจำนวน ${count} คน` : 'พบใบหน้าแล้ว';
-    } else if (status === 'none') {
-      label = 'ยังไม่พบใบหน้า';
-    } else if (status === 'error') {
-      label = detail?.error ? String(detail.error) : 'ไม่สามารถใช้งานกล้องได้';
-    }
-
-    faceStatusLabel.textContent = label;
-  }
-
-  function dispatchFaceEvent(detail) {
-    if (typeof window.CustomEvent === 'function') {
-      window.dispatchEvent(new CustomEvent('npt-face-detect', { detail }));
-    }
-    window.__NPT_FACE_STATE__ = detail;
-    notifyFaceStatus(detail);
-  }
-
-  function notifyFaceStatus(detail) {
-    if (!detail) {
-      return;
-    }
-    let statusKey = 'idle';
-    if (!detail.success) {
-      statusKey = 'error';
-    } else if ((detail.count || 0) > 0) {
-      statusKey = 'detected';
-    } else {
-      statusKey = 'none';
-    }
-
-    updateFaceIndicator(statusKey, detail);
-
-    if (lastFaceStatus === statusKey) {
-      return;
-    }
-    lastFaceStatus = statusKey;
-
-    if (statusKey === 'detected') {
-      setMascotGreeting(true);
-    } else {
-      if (mascotSpeech) {
-        window.clearTimeout(mascotTimer);
-        mascotSpeech.classList.add('is-hidden');
-      }
-    }
-  }
-
-  async function captureFaceFrame() {
-    if (!faceVideo || !faceCanvas || !faceStream || faceInFlight) {
-      return;
-    }
-    if (faceVideo.readyState < 2) {
-      return;
-    }
-
-    const width = faceVideo.videoWidth;
-    const height = faceVideo.videoHeight;
-    if (!width || !height) {
-      return;
-    }
-
-    const ctx = faceCanvas.getContext('2d');
-    if (!ctx) {
-      return;
-    }
-
-    faceInFlight = true;
-    try {
-      faceCanvas.width = width;
-      faceCanvas.height = height;
-      ctx.drawImage(faceVideo, 0, 0, width, height);
-      const dataUrl = faceCanvas.toDataURL('image/jpeg', 0.5);
-
-      const response = await fetch('/api/face-detect', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ image: dataUrl }),
-      });
-
-      const payload = await response.json();
-      if (!payload?.success) {
-        dispatchFaceEvent({ success: false, error: payload?.error });
-        return;
-      }
-      dispatchFaceEvent({ success: true, faces: payload.faces, count: payload.count });
-    } catch (error) {
-      console.warn('Face detection request failed', error);
-      dispatchFaceEvent({ success: false, error: 'การตรวจจับใบหน้าล้มเหลว' });
-    } finally {
-      faceInFlight = false;
-    }
-  }
-
-  function scheduleFaceDetection() {
-    if (faceTimer) {
-      window.clearInterval(faceTimer);
-    }
-    captureFaceFrame();
-    faceTimer = window.setInterval(captureFaceFrame, FACE_CAPTURE_INTERVAL);
-  }
-
-  async function startFaceDetection() {
-    if (faceActivated || !faceVideo || !faceCanvas) {
-      return;
-    }
-    faceActivated = true;
-
-    if (!navigator.mediaDevices?.getUserMedia) {
-      dispatchFaceEvent({ success: false, error: 'อุปกรณ์นี้ไม่รองรับการใช้งานกล้อง' });
-      faceActivated = false;
-      updateFaceIndicator('error', { error: 'อุปกรณ์นี้ไม่รองรับกล้อง' });
-      return;
-    }
-
-    updateFaceIndicator('scanning');
-
-    try {
-      faceStream = await navigator.mediaDevices.getUserMedia({ video: { facingMode: 'user' } });
-      faceVideo.srcObject = faceStream;
-      await faceVideo.play().catch(() => undefined);
-      if (faceContainer) {
-        faceContainer.hidden = true;
-      }
-      scheduleFaceDetection();
-    } catch (error) {
-      console.warn('Unable to start face detection', error);
-      dispatchFaceEvent({ success: false, error: 'ไม่ได้รับอนุญาตให้เปิดกล้อง' });
-      stopFaceDetection();
-      updateFaceIndicator('error', { error: 'ไม่สามารถเปิดกล้องได้' });
-    }
-  }
-
-  function requestFaceDetection() {
-    if (faceActivated) {
-      return;
-    }
-    startFaceDetection();
-  }
-
-  function handleVisibilityChange() {
-    if (document.hidden) {
-      stopFaceDetection();
-      faceActivated = false;
-    }
-  }
 
   function handleSubmit(event) {
     event.preventDefault();
@@ -406,26 +212,6 @@
     const file = event.target?.files?.[0];
     validateFile(file || null);
   });
-
-  if (faceVideo && faceCanvas) {
-    updateFaceIndicator('idle');
-
-    const activateDetection = () => {
-      document.removeEventListener('click', activateDetection);
-      document.removeEventListener('touchstart', activateDetection);
-      requestFaceDetection();
-    };
-    document.addEventListener('click', activateDetection, { once: true });
-    document.addEventListener('touchstart', activateDetection, { once: true });
-    document.addEventListener('visibilitychange', handleVisibilityChange);
-    window.addEventListener('beforeunload', stopFaceDetection);
-    window.addEventListener('pagehide', stopFaceDetection);
-
-    window.NPTFaceDetector = {
-      start: requestFaceDetection,
-      stop: stopFaceDetection,
-    };
-  }
 
   resetFileInput();
   initMobileMenu(); // Initialize mobile menu

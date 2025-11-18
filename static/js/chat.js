@@ -57,6 +57,7 @@
 
   const FILE_ACCEPTED_TYPES = ['image/jpeg', 'image/png', 'image/webp'];
   const MAX_IMAGE_SIZE_BYTES = 4 * 1024 * 1024;
+  const DUPLICATE_MESSAGE_INTERVAL = 10000;
 
   const state = {
     userDisplayName: window.__USER_DISPLAY_NAME__ || 'ผู้ใช้งาน',
@@ -70,6 +71,10 @@
     abortController: null,
     isAIThinking: false,
     shouldAutoScroll: true, // Track if we should auto-scroll
+    lastUserMessageNormalized: '',
+    lastUserMessageAt: 0,
+    pendingMessageNormalized: '',
+    pendingMessageAt: 0,
   };
 
   function showToast(message, variant = 'info') {
@@ -458,7 +463,7 @@
   }
 
   function appendMessage(message) {
-    if (!elements.messages) return;
+    if (!elements.messages) return null;
     const node = createMessageNode(message);
     elements.messages.appendChild(node);
 
@@ -470,6 +475,7 @@
     if (elements.emptyState) {
       elements.emptyState.classList.add('hidden');
     }
+    return node;
   }
 
   function showTypingIndicator() {
@@ -602,20 +608,35 @@
     const text = elements.chatInput.value.trim();
     if (!text || state.isAIThinking) return;
 
+    const normalizedText = text.toLowerCase();
+    const now = Date.now();
+    if (
+      state.lastUserMessageNormalized &&
+      normalizedText === state.lastUserMessageNormalized &&
+      now - state.lastUserMessageAt < DUPLICATE_MESSAGE_INTERVAL
+    ) {
+      showToast('ข้อความนี้ถูกส่งแล้ว', 'info');
+      return;
+    }
+
     // Re-enable auto-scroll when user sends a message
     state.shouldAutoScroll = true;
+    state.pendingMessageNormalized = normalizedText;
+    state.pendingMessageAt = now;
 
     elements.chatInput.value = '';
     setInputsDisabled(true);
     resetFilePreview();
 
     const userEntry = { role: 'user', text, createdAt: new Date().toISOString() };
-    appendMessage(userEntry);
+    const userNode = appendMessage(userEntry);
     showTypingIndicator();
     showCancelButton();
 
     state.isAIThinking = true;
     state.abortController = new AbortController();
+    let requestSucceeded = false;
+    let shouldRecordLastMessage = true;
 
     try {
       const response = await fetch('/api/messages', {
@@ -629,10 +650,16 @@
       }
       const data = await response.json();
       removeTypingIndicator();
-      if (data.assistant) {
+      const isDuplicateResponse = Boolean(data.duplicate || data.assistant?.duplicate);
+      if (isDuplicateResponse) {
+        userNode?.remove();
+        showToast('ข้อความนี้ถูกส่งแล้ว ระบบไม่ประมวลผลซ้ำค่ะ', 'info');
+        shouldRecordLastMessage = false;
+      } else if (data.assistant) {
         appendMessage(data.assistant);
         state.lastTimestamp = data.assistant.createdAt;
       }
+      requestSucceeded = true;
     } catch (error) {
       removeTypingIndicator();
       if (error.name === 'AbortError') {
@@ -648,6 +675,11 @@
       setInputsDisabled(false);
       hideCancelButton();
       elements.chatInput.focus();
+      if (requestSucceeded && shouldRecordLastMessage && state.pendingMessageNormalized) {
+        state.lastUserMessageNormalized = state.pendingMessageNormalized;
+        state.lastUserMessageAt = state.pendingMessageAt;
+      }
+      state.pendingMessageNormalized = '';
     }
   }
 

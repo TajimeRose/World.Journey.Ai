@@ -5,6 +5,7 @@ from __future__ import annotations
 import hashlib
 import json
 import re
+import time
 from pathlib import Path
 from typing import Any, Dict, List, Optional, TYPE_CHECKING
 
@@ -45,6 +46,7 @@ LOCAL_KEYWORDS = PROMPT_REPO.get_prompt("chatbot/local_terms", default=[
     "สมุทรสงคราม",
     "samut songkhram"
 ])
+DUPLICATE_WINDOW_SECONDS = 15
 
 
 class TravelChatbot:
@@ -70,6 +72,7 @@ class TravelChatbot:
         self.dataset_summary = self._build_dataset_summary()
         self.local_reference_terms = self._build_local_reference_terms()
         self.matching_engine: Optional[FlexibleMatcherType] = self._init_matcher()
+        self._recent_requests: Dict[str, Dict[str, Any]] = {}
 
         if GPT_AVAILABLE and GPTService is not None:
             try:
@@ -146,6 +149,33 @@ class TravelChatbot:
                 seen.add(lowered)
                 merged.append(text)
         return merged
+
+    @staticmethod
+    def _normalized_query_key(text: str) -> str:
+        collapsed = re.sub(r"\s+", " ", text.strip())
+        return collapsed.lower()
+
+    def _replay_duplicate_response(self, user_id: str, key: str) -> Optional[Dict[str, Any]]:
+        if not key:
+            return None
+        entry = self._recent_requests.get(user_id)
+        if not entry:
+            return None
+        if entry["query"] == key and (time.time() - entry["timestamp"]) <= DUPLICATE_WINDOW_SECONDS:
+            cached_payload = dict(entry["result"])
+            cached_payload["duplicate"] = True
+            cached_payload["source"] = f"{cached_payload.get('source', 'cache')}_cached"
+            return cached_payload
+        return None
+
+    def _cache_response(self, user_id: str, key: str, payload: Dict[str, Any]) -> None:
+        if not key:
+            return
+        self._recent_requests[user_id] = {
+            "query": key,
+            "timestamp": time.time(),
+            "result": payload,
+        }
 
     def _auto_detect_keywords(self, query: str, limit: int = 6) -> List[str]:
         if not query or not self.travel_data:
@@ -958,6 +988,14 @@ class TravelChatbot:
         self._refresh_settings()
         trimmed_query = user_message.strip()
         normalized_query = trimmed_query.lower()
+        dedup_key = self._normalized_query_key(trimmed_query) if trimmed_query else ""
+        cached_payload = self._replay_duplicate_response(user_id, dedup_key)
+        if cached_payload:
+            return cached_payload
+
+        def finalize_response(payload: Dict[str, Any]) -> Dict[str, Any]:
+            self._cache_response(user_id, dedup_key, payload)
+            return payload
         greetings_th = ("สวัสดี", "หวัดดี", "ดีจ้า", "สวัสดีค่ะ", "สวัสดีครับ")
         greetings_en = ("hello", "hi", "hey", "greetings")
         if trimmed_query and any(word in normalized_query for word in greetings_th + greetings_en):
@@ -972,7 +1010,7 @@ class TravelChatbot:
                     "en",
                     "Hello! I'm Nong Pla Too, happy to help plan your Samut Songkhram adventures!"
                 )
-            return {
+            return finalize_response({
                 'response': greeting_text,
                 'structured_data': [],
                 'language': language,
@@ -986,7 +1024,7 @@ class TravelChatbot:
                     'preference_note': self._preference_context(),
                     'character_note': self._character_context()
                 }
-            }
+            })
 
         analysis = self._interpret_query_keywords(user_message) if trimmed_query else {"keywords": [], "places": []}
         matcher_signals = self._matcher_analysis(user_message)
@@ -1056,7 +1094,7 @@ class TravelChatbot:
             warning_message = (
                 "น้องปลาทูจะให้ข้อมูลได้ชัดเจนและครอบคลุม หากถามข้อมูลในจังหวัดสมุทรสงครามค่ะ ขออภัยด้วยนะคะ"
             )
-            return {
+            return finalize_response({
                 'response': warning_message,
                 'structured_data': [],
                 'language': language,
@@ -1067,7 +1105,7 @@ class TravelChatbot:
                     'message': 'Out of supported province scope',
                     'data_available': False
                 }
-            }
+            })
 
         if not user_message.strip():
             simple_msg = self._prompt(
@@ -1076,13 +1114,13 @@ class TravelChatbot:
                 default_th="กรุณาพิมพ์คำถามเกี่ยวกับการท่องเที่ยวในสมุทรสงครามนะคะ",
                 default_en="Please share a travel question for Samut Songkhram."
             )
-            return {
+            return finalize_response({
                 'response': simple_msg,
                 'structured_data': [],
                 'language': language,
                 'source': 'empty_query',
                 'data_status': data_status
-            }
+            })
 
         if self.gpt_service:
             try:
@@ -1094,7 +1132,7 @@ class TravelChatbot:
                     data_status=data_status
                 )
 
-                return {
+                return finalize_response({
                     'response': gpt_result['response'],
                     'structured_data': matched_data,
                     'language': language,
@@ -1103,12 +1141,12 @@ class TravelChatbot:
                     'tokens_used': gpt_result.get('tokens_used'),
                     'data_status': data_status,
                     'character_note': character_note
-                }
+                })
                 
             except Exception as e:
                 print(f"[ERROR] GPT generation failed: {e}")
                 simple_response = self._create_simple_response(matched_data, language)
-                return {
+                return finalize_response({
                     'response': simple_response,
                     'structured_data': matched_data,
                     'language': language,
@@ -1116,17 +1154,17 @@ class TravelChatbot:
                     'intent': detected_intent,
                     'gpt_error': str(e),
                     'data_status': data_status
-                }
+                })
         else:
             simple_response = self._create_simple_response(matched_data, language)
-            return {
+            return finalize_response({
                 'response': simple_response,
                 'structured_data': matched_data,
                 'language': language,
                 'source': 'simple',
                 'intent': detected_intent,
                 'data_status': data_status
-            }
+            })
 
 
 _CHATBOT: Optional[TravelChatbot] = None
