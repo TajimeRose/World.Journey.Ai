@@ -170,6 +170,7 @@ class GPTService:
         thai_chars = sum(1 for ch in text if "\u0e00" <= ch <= "\u0e7f")
         return "th" if thai_chars > len(text) * 0.3 else "en"
 
+
     def _format_context_data(self, context_data: List[Dict[str, Any]], data_type: str) -> str:
         if not context_data:
             return f"No verified {data_type} data available."
