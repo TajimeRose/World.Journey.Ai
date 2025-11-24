@@ -59,6 +59,7 @@ class TravelChatbot:
         self.runtime_config = PROMPT_REPO.get_runtime_config()
         self.character_profile = PROMPT_REPO.get_character_profile()
         self.match_limit = self.runtime_config.get("matching", {}).get("max_matches", 5)
+        self.display_limit = self.runtime_config.get("matching", {}).get("max_display", 4)
         self.gpt_service: Optional[Any] = None
         self.image_links = self._load_image_links()
         self.province_profile = self._load_province_profile()
@@ -720,8 +721,6 @@ class TravelChatbot:
                     text_fields.append(str(types))
             haystack = " ".join(part.lower() for part in text_fields if part)
             score = 0
-            if normalized in haystack:
-                score += 3
             for token in tokens:
                 if token in haystack:
                     score += 1
@@ -738,16 +737,34 @@ class TravelChatbot:
             return []
         return [item for item, _ in scored[:limit]]
 
-    def _select_trip_guides_for_query(self, query: str) -> List[Dict[str, Any]]:
+    def _select_trip_guides_for_query(
+        self,
+        query: str,
+        existing_ids: Optional[set[str]] = None,
+        existing_titles: Optional[set[str]] = None,
+    ) -> List[Dict[str, Any]]:
         if not getattr(self, "trip_guides", None):
             return []
         normalized = query.lower()
         matches: List[Dict[str, Any]] = []
+        seen_ids = set(existing_ids or [])
+        seen_titles = set(existing_titles or [])
 
         def add(slug: str) -> None:
             entry = self.trip_guides.get(slug)
-            if entry and entry not in matches:
+            if not entry:
+                return
+            entry_id = self._entry_identifier(entry)
+            if entry_id in seen_ids:
+                return
+            title_key = self._normalize_name_token(entry.get("place_name") or entry.get("name"))
+            if title_key and title_key in seen_titles:
+                return
+            if entry not in matches:
                 matches.append(entry)
+                seen_ids.add(entry_id)
+                if title_key:
+                    seen_titles.add(title_key)
 
         if any(keyword in normalized for keyword in ("9 วัด", "๙ วัด", "ไหว้พระ", "temple tour", "nine temples")):
             add("9temples")
@@ -755,10 +772,6 @@ class TravelChatbot:
             add("2days1nighttrip")
         if any(keyword in normalized for keyword in ("1 วัน", "วันเดียว", "ครึ่งวัน", "half day", "one day")):
             add("1daytrip")
-
-        if not matches and self._is_trip_intent(normalized):
-            matches.extend(self.trip_guides.values())
-
         return matches
 
     def _merge_structured_data(
@@ -774,6 +787,27 @@ class TravelChatbot:
         for entry in extras:
             merged[self._entry_identifier(entry)] = entry
         return list(merged.values())
+
+    def _trim_structured_results(
+        self,
+        entries: List[Dict[str, Any]],
+        limit: Optional[int] = None,
+    ) -> List[Dict[str, Any]]:
+        if not entries:
+            return []
+        max_count = limit or self.display_limit or self.match_limit or 5
+        trimmed: List[Dict[str, Any]] = []
+        seen: set[str] = set()
+        for entry in entries:
+            ident = entry.get("id") or self._entry_identifier(entry)
+            if ident in seen:
+                continue
+            seen.add(ident)
+            trimmed.append(entry)
+            if len(trimmed) >= max_count:
+                break
+        return trimmed
+
 
     def _entry_identifier(self, entry: Dict[str, Any]) -> str:
         ident = entry.get("id")
@@ -1056,9 +1090,23 @@ class TravelChatbot:
                     boost_keywords=matcher_signals.get("keywords"),
                 )
                 auto_keywords_used = True
-        trip_matches = self._select_trip_guides_for_query(user_message)
+        existing_ids = {self._entry_identifier(entry) for entry in matched_data}
+        existing_titles: set[str] = set()
+        for entry in matched_data:
+            if not isinstance(entry, dict):
+                continue
+            title = entry.get("place_name") or entry.get("name")
+            title_key = self._normalize_name_token(title)
+            if title_key:
+                existing_titles.add(title_key)
+        trip_matches = self._select_trip_guides_for_query(
+            user_message,
+            existing_ids,
+            existing_titles,
+        )
         if trip_matches:
             matched_data = self._merge_structured_data(matched_data, trip_matches)
+        matched_data = self._trim_structured_results(matched_data)
         preference_note = self._preference_context()
         character_note = self._character_context()
         includes_local_term = self._contains_local_reference(user_message)
