@@ -5,7 +5,9 @@ import os
 
 from flask import Flask, render_template, request, jsonify, Response
 from flask_cors import CORS
+from flask_cors import CORS
 from chat import chat_with_bot, get_chat_response
+from world_journey_ai.db import init_db
 
 import datetime
 from dotenv import load_dotenv
@@ -168,5 +170,10 @@ def health_check():
 if __name__ == '__main__':
     print("🚀 Samut Songkhram Travel Assistant (GPT model: OPENAI_MODEL or gpt-4o)")
     print("📍 http://localhost:5000")
+    try:
+        init_db()
+        print("[OK] Database initialized")
+    except Exception as e:
+        print(f"[WARN] Database initialization failed: {e}")
     app.run(debug=True, host='0.0.0.0', port=5000)
 

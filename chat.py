@@ -10,6 +10,8 @@ from pathlib import Path
 from typing import Any, Dict, List, Optional, TYPE_CHECKING
 
 from world_journey_ai.configs import PromptRepo
+from world_journey_ai.db import get_db, Place
+
 
 try:
     from gpt_service import GPTService
@@ -33,15 +35,8 @@ else:
     FlexibleMatcherType = Any
 
 PROMPT_REPO = PromptRepo()
-DATA_FILE = Path(__file__).resolve().parent / "world_journey_ai" / "data" / "travel_data.json"
-CONFIG_DIR = Path(__file__).resolve().parent / "world_journey_ai" / "configs"
-SAMUT_PROFILE_FILE = CONFIG_DIR / "SamutSongkhram.json"
-IMAGE_LINK_FILE = CONFIG_DIR / "Imagelink.json"
-TRIP_FILES = {
-    "2days1nighttrip": CONFIG_DIR / "2days1nighttrip.json",
-    "1daytrip": CONFIG_DIR / "1daytrip.json",
-    "9temples": CONFIG_DIR / "9temples.json",
-}
+# DATA_FILE and other JSON constants removed
+
 LOCAL_KEYWORDS = PROMPT_REPO.get_prompt("chatbot/local_terms", default=[
     "สมุทรสงคราม",
     "samut songkhram"
@@ -61,10 +56,11 @@ class TravelChatbot:
         self.match_limit = self.runtime_config.get("matching", {}).get("max_matches", 5)
         self.display_limit = self.runtime_config.get("matching", {}).get("max_display", 4)
         self.gpt_service: Optional[Any] = None
-        self.image_links = self._load_image_links()
-        self.province_profile = self._load_province_profile()
-        raw_trip_guides = self._load_trip_guides()
-        self.travel_data = self._load_travel_data(raw_trip_guides)
+        self.gpt_service: Optional[Any] = None
+        # self.image_links = self._load_image_links() # Removed
+        # self.province_profile = self._load_province_profile() # Removed
+        # raw_trip_guides = self._load_trip_guides() # Removed
+        self.travel_data = self._load_travel_data_from_db()
         self.trip_guides = {
             entry["id"]: entry
             for entry in self.travel_data
@@ -229,138 +225,23 @@ class TravelChatbot:
 
         return detected
 
-    def _load_travel_data(
-        self,
-        trip_guides: Optional[Dict[str, Dict[str, Any]]] = None,
-    ) -> List[Dict[str, Any]]:
+    def _load_travel_data_from_db(self) -> List[Dict[str, Any]]:
         entries: List[Dict[str, Any]] = []
-
-        province_places = (self.province_profile or {}).get("places", [])
-        entries.extend(self._convert_province_places(province_places))
-
-        if trip_guides:
-            entries.extend(trip_guides.values())
-
-        base_entries = self._read_json_list(DATA_FILE)
-        entries.extend(self._convert_travel_dataset(base_entries))
+        try:
+            db_gen = get_db()
+            db = next(db_gen)
+            places = db.query(Place).all()
+            for place in places:
+                entries.append(place.to_dict())
+        except Exception as e:
+            print(f"[ERROR] Failed to load data from DB: {e}")
+            return []
 
         return self._deduplicate_entries(entries)
 
-    def _load_province_profile(self) -> Dict[str, Any]:
-        data = self._load_json_content(SAMUT_PROFILE_FILE)
-        return data if isinstance(data, dict) else {}
 
-    def _load_trip_guides(self) -> Dict[str, Dict[str, Any]]:
-        guides: Dict[str, Dict[str, Any]] = {}
-        for slug, path in TRIP_FILES.items():
-            payload = self._load_json_content(path)
-            if not isinstance(payload, dict) or not payload:
-                continue
-            entry = self._transform_trip_data(slug, payload)
-            if entry:
-                guides[slug] = entry
-        return guides
 
-    def _load_image_links(self) -> Dict[str, List[str]]:
-        payload = self._load_json_content(IMAGE_LINK_FILE)
-        places: List[Dict[str, Any]] = []
-        if isinstance(payload, dict):
-            candidate_list = payload.get("places") or payload.get("data") or payload.get("items")
-            if isinstance(candidate_list, list):
-                places = candidate_list
-        elif isinstance(payload, list):
-            places = payload
 
-        image_map: Dict[str, List[str]] = {}
-        for item in places:
-            if not isinstance(item, dict):
-                continue
-            raw_images = item.get("images")
-            if not isinstance(raw_images, list):
-                continue
-            images = [url.strip() for url in raw_images if isinstance(url, str) and url.strip()]
-            if not images:
-                continue
-            keys = self._make_name_keys(
-                item.get("name_th"),
-                item.get("name_en"),
-                item.get("name"),
-                item.get("place_name"),
-            )
-            for key in keys:
-                if not key:
-                    continue
-                existing = image_map.setdefault(key, [])
-                for image_url in images:
-                    if image_url not in existing:
-                        existing.append(image_url)
-        return image_map
-
-    def _transform_trip_data(self, slug: str, payload: Dict[str, Any]) -> Optional[Dict[str, Any]]:
-        trip_plan = payload.get("trip_plan", {})
-        title = trip_plan.get("title") or payload.get("trip_title") or payload.get("title")
-        if not title:
-            return None
-
-        overview = (
-            trip_plan.get("overview")
-            or payload.get("overview")
-            or payload.get("theme")
-            or ""
-        )
-        detail_lines: List[str] = []
-        if overview:
-            detail_lines.append(overview)
-        for day_key in ("day_1", "day_2", "day_3"):
-            day_plan = trip_plan.get(day_key)
-            if isinstance(day_plan, dict):
-                summary = self._summarize_day_plan(day_plan)
-                if summary:
-                    detail_lines.append(summary)
-
-        route = payload.get("suggested_route")
-        if isinstance(route, dict):
-            route_summary = self._summarize_route(route)
-            if route_summary:
-                detail_lines.append(route_summary)
-
-        detail_text = "\n".join(line for line in detail_lines if line)
-
-        highlight_terms: List[str] = []
-        for tip in payload.get("travel_tips", []) or []:
-            if tip:
-                highlight_terms.append(str(tip))
-        for attraction in payload.get("attractions", []) or []:
-            name = attraction.get("name")
-            if name:
-                highlight_terms.append(name)
-        for activity in payload.get("recommended_activities", []) or []:
-            name = activity.get("name")
-            if name:
-                highlight_terms.append(name)
-        highlight_terms = list(dict.fromkeys(highlight_terms))
-
-        raw_entry = {
-            "id": slug,
-            "place_name": title,
-            "name": title,
-            "category": "trip_plan",
-            "type": ["trip_plan"],
-            "description": detail_text or overview,
-            "place_information": {
-                "detail": detail_text or overview,
-                "highlights": highlight_terms,
-                "category_description": "trip_plan",
-            },
-            "highlights": highlight_terms,
-            "trip_plan": trip_plan,
-            "suggested_route": route,
-            "travel_tips": payload.get("travel_tips", []),
-            "recommended_activities": payload.get("recommended_activities", []),
-            "suitable_for": payload.get("suitable_for", []),
-        }
-        entry = self._standardize_entry(raw_entry, source="trip_json", priority=2)
-        return entry
 
     def _make_name_keys(self, *values: Optional[str]) -> List[str]:
         keys: List[str] = []
@@ -403,39 +284,6 @@ class TravelChatbot:
         normalized = re.sub(r"[^0-9a-zA-Z\u0E00-\u0E7F]+", "", text.strip().lower())
         return normalized
 
-    def _apply_image_links(self, entry: Dict[str, Any]) -> None:
-        image_links = getattr(self, "image_links", {})
-        if not image_links:
-            return
-        keys = self._make_name_keys(
-            entry.get("place_name"),
-            entry.get("name"),
-            entry.get("name_th"),
-            entry.get("name_en"),
-        )
-        entry_id = entry.get("id")
-        if isinstance(entry_id, str):
-            normalized_id = self._normalize_name_token(entry_id)
-            if normalized_id:
-                keys.append(normalized_id)
-
-        aggregated: List[str] = []
-        existing_images = entry.get("images")
-        if isinstance(existing_images, list):
-            for url in existing_images:
-                if isinstance(url, str) and url.strip() and url not in aggregated:
-                    aggregated.append(url.strip())
-
-        for key in keys:
-            if not key:
-                continue
-            linked_images = image_links.get(key) or []
-            for url in linked_images:
-                if isinstance(url, str) and url not in aggregated:
-                    aggregated.append(url)
-
-        if aggregated:
-            entry["images"] = aggregated
 
     @staticmethod
     def _summarize_day_plan(day_plan: Dict[str, Any]) -> str:
@@ -467,38 +315,7 @@ class TravelChatbot:
             return f"เส้นทางแนะนำ: {path}"
         return ""
 
-    def _convert_province_places(self, places: Optional[List[Dict[str, Any]]]) -> List[Dict[str, Any]]:
-        normalized: List[Dict[str, Any]] = []
-        for place in places or []:
-            city = self._extract_city_name(place.get("location"))
-            raw_entry = {
-                "place_name": place.get("name_th") or place.get("name_en"),
-                "name": place.get("name_th") or place.get("name_en"),
-                "name_en": place.get("name_en"),
-                "city": city,
-                "description": place.get("history") or "",
-                "highlights": place.get("highlights", []),
-                "type": place.get("type", []),
-                "rating": place.get("rating"),
-                "location": {"district": city, "province": "สมุทรสงคราม"},
-                "place_information": {
-                    "detail": place.get("history") or "",
-                    "highlights": place.get("highlights", []),
-                    "category_description": ", ".join(place.get("type", [])) if place.get("type") else "attraction",
-                },
-            }
-            entry = self._standardize_entry(raw_entry, source="province_json", priority=3)
-            if entry:
-                normalized.append(entry)
-        return normalized
 
-    def _convert_travel_dataset(self, entries: List[Dict[str, Any]]) -> List[Dict[str, Any]]:
-        normalized: List[Dict[str, Any]] = []
-        for entry in entries:
-            normalized_entry = self._standardize_entry(entry, source="travel_json", priority=1)
-            if normalized_entry:
-                normalized.append(normalized_entry)
-        return normalized
 
     def _standardize_entry(
         self,
@@ -569,7 +386,7 @@ class TravelChatbot:
                 info["category_description"] = normalized.get("category") or "travel"
         normalized["place_information"] = info
 
-        self._apply_image_links(normalized)
+        # self._apply_image_links(normalized) # Removed
 
         if not normalized.get("id"):
             normalized["id"] = self._slugify_identifier(name)
@@ -599,24 +416,6 @@ class TravelChatbot:
             final_entries.append(entry)
         return final_entries
 
-    def _read_json_list(self, path: Path) -> List[Dict[str, Any]]:
-        data = self._load_json_content(path)
-        if isinstance(data, list):
-            return data
-        return []
-
-    def _load_json_content(self, path: Path) -> Any:
-        if not path.exists():
-            print(f"[WARN] JSON file not found: {path}")
-            return None
-        try:
-            if path.stat().st_size == 0:
-                return {}
-            with open(path, "r", encoding="utf-8") as handle:
-                return json.load(handle)
-        except (json.JSONDecodeError, OSError) as exc:
-            print(f"[WARN] Cannot load JSON from {path}: {exc}")
-            return None
 
     def _slugify_identifier(self, text: str) -> str:
         if not text:

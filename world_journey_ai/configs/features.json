@@ -1,9 +1,0 @@
-{
-  "chatbot": {
-    "default_province": "สมุทรสงคราม",
-    "contextual_rules": [
-      "Focus on Samut Songkhram tourism data when available.",
-      "Use friendly local tone (NongPlaToo) and clarify when information is limited."
-    ]
-  }
-}
