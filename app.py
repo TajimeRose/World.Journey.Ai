@@ -1,4 +1,4 @@
-﻿"""Flask app for Samut Songkhram tourism. GPT (OPENAI_MODEL, default: gpt-5)."""
+﻿"""Flask app for Samut Songkhram tourism. GPT (OPENAI_MODEL, default: gpt-4o)."""
 
 import json
 import os
@@ -166,7 +166,7 @@ def health_check():
     return jsonify({'status': 'healthy', 'timestamp': datetime.datetime.now().isoformat()})
 
 if __name__ == '__main__':
-    print("🚀 Samut Songkhram Travel Assistant (GPT model: OPENAI_MODEL or gpt-5)")
+    print("🚀 Samut Songkhram Travel Assistant (GPT model: OPENAI_MODEL or gpt-4o)")
     print("📍 http://localhost:5000")
     app.run(debug=True, host='0.0.0.0', port=5000)
 
