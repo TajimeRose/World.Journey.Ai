@@ -4,7 +4,7 @@ GPT-powered travel assistant for Samut Songkhram Province.
 
 ## Features
 
-- **GPT-powered chat** (OPENAI_MODEL, default: gpt-5)
+- **GPT-powered chat** (OPENAI_MODEL, default: gpt-4o)
 - **Curated local insights** (custom knowledge base)
 - **Intent detection** (attractions, restaurants, accommodation, events, etc.)
 - **Bilingual** (Thai/English)

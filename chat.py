@@ -1,4 +1,4 @@
-"""GPT chatbot for Samut Songkhram tourism. OPENAI_MODEL (default: gpt-5)."""
+"""GPT chatbot for Samut Songkhram tourism. OPENAI_MODEL (default: gpt-4o)."""
 
 from __future__ import annotations
 
