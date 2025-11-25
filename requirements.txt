@@ -1,3 +1,5 @@
+--extra-index-url https://download.pytorch.org/whl/cpu
+
 # Samut Songkhram Tourism Assistant Requirements
 # GPT-4 powered travel assistant
 
