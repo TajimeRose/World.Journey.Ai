@@ -6,22 +6,41 @@ from sqlalchemy import text
 from world_journey_ai.db import get_engine  # Fixed import path
 
 # Try multiple possible locations for the data file
-DATA_PATH = Path(__file__).parent / "world_journey_ai" / "data" / "tourist_places.json"
-
-# Fallback to check if data is in the same directory
-if not DATA_PATH.exists():
-    DATA_PATH = Path(__file__).parent / "data" / "tourist_places.json"
-
-# Final fallback - check if file still doesn't exist and show helpful error
-if not DATA_PATH.exists():
-    print(f"❌ ERROR: Could not find tourist_places.json")
-    print(f"Tried: {Path(__file__).parent / 'world_journey_ai' / 'data' / 'tourist_places.json'}")
-    print(f"Tried: {Path(__file__).parent / 'data' / 'tourist_places.json'}")
-    print(f"Current directory: {Path.cwd()}")
-    print(f"Script location: {Path(__file__).parent}")
-    raise FileNotFoundError(f"tourist_places.json not found in expected locations")
-
-print(f"✅ Loading data from: {DATA_PATH}")
+# First, try as a package resource (works in both local and Docker)
+try:
+    # Option 1: Using importlib.resources (Python 3.9+)
+    from importlib.resources import files
+    DATA_PATH = files('world_journey_ai').joinpath('data', 'tourist_places.json')
+    print(f"📦 Using package resource: {DATA_PATH}")
+except (ImportError, AttributeError):
+    # Option 2: Fallback to file path detection
+    DATA_PATH = Path(__file__).parent / "world_journey_ai" / "data" / "tourist_places.json"
+    
+    # Fallback to check if data is in the same directory
+    if not DATA_PATH.exists():
+        DATA_PATH = Path(__file__).parent / "data" / "tourist_places.json"
+    
+    # Final fallback - check if file still doesn't exist and show helpful error
+    if not DATA_PATH.exists():
+        print(f"❌ ERROR: Could not find tourist_places.json")
+        print(f"Tried: {Path(__file__).parent / 'world_journey_ai' / 'data' / 'tourist_places.json'}")
+        print(f"Tried: {Path(__file__).parent / 'data' / 'tourist_places.json'}")
+        print(f"Current directory: {Path.cwd()}")
+        print(f"Script location: {Path(__file__).parent}")
+        
+        # List what's actually in the directories
+        print(f"\nContents of /app:")
+        for item in Path('/app').iterdir():
+            print(f"  - {item}")
+        
+        if Path('/app/world_journey_ai').exists():
+            print(f"\nContents of /app/world_journey_ai:")
+            for item in Path('/app/world_journey_ai').iterdir():
+                print(f"  - {item}")
+        
+        raise FileNotFoundError(f"tourist_places.json not found in expected locations")
+    
+    print(f"✅ Loading data from: {DATA_PATH}")
 
 
 def main():
