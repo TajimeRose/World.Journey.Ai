@@ -4,6 +4,7 @@ from pathlib import Path
 import sys
 
 from sqlalchemy import text
+from sqlalchemy.exc import ProgrammingError
 from world_journey_ai.db import get_engine
 
 def get_data_path():
@@ -71,43 +72,63 @@ def main():
 
     engine = get_engine()
 
-    # Insert into tourist_places table (not places table!)
-    # Map Google Places data to tourist_places schema
+    # Ensure we can upsert based on place_id for stable seeding runs
+    with engine.begin() as conn:
+        try:
+            conn.execute(text("ALTER TABLE places ADD CONSTRAINT places_place_id_key UNIQUE (place_id)"))
+            print("✅ Added unique constraint on places.place_id")
+        except ProgrammingError as exc:
+            # Constraint already exists or database backend doesn't support statement (ignore)
+            if "already" in str(exc).lower():
+                pass
+            else:
+                raise
+
+    # Insert into places table using cleaned JSON schema
     insert_sql = text("""
-        INSERT INTO tourist_places
-            (id, name_th, location, rating, description, images, tags)
+        INSERT INTO places
+            (place_id, name, category, address, rating, reviews, description, images, tags, link)
         VALUES
-            (:id, :name_th, :location, :rating, :description, :images, :tags)
-        ON CONFLICT (id) DO UPDATE SET
-            name_th = EXCLUDED.name_th,
-            location = EXCLUDED.location,
+            (:place_id, :name, :category, :address, :rating, :reviews, :description, :images, :tags, :link)
+        ON CONFLICT (place_id) DO UPDATE SET
+            name = EXCLUDED.name,
+            category = EXCLUDED.category,
+            address = EXCLUDED.address,
             rating = EXCLUDED.rating,
+            reviews = EXCLUDED.reviews,
             description = EXCLUDED.description,
             images = EXCLUDED.images,
-            tags = EXCLUDED.tags
+            tags = EXCLUDED.tags,
+            link = EXCLUDED.link
     """)
 
-    inserted = 0
+    processed = 0
     with engine.begin() as conn:
-        for idx, p in enumerate(places, start=1):
-            # Transform Google Places data to tourist_places schema
-            place_data = {
-                "id": idx,  # Use sequential integer ID
-                "name_th": p.get("name"),  # Use name as name_th
-                "location": p.get("address"),  # Use address as location
-                "rating": p.get("rating"),
-                "description": p.get("description") or "",  # Handle null descriptions
-                "images": json.dumps([p.get("featured_image")] if p.get("featured_image") else [], ensure_ascii=False),
-                "tags": json.dumps(
-                    [cat.strip() for cat in (p.get("categories") or "").split(",") if cat.strip()],
-                    ensure_ascii=False
-                ),
-            }
-            
-            conn.execute(insert_sql, place_data)
-            inserted += 1
+        for p in places:
+            place_id = p.get("place_id")
+            name = p.get("name")
 
-    print(f"✅ Inserted/Updated {inserted} rows into tourist_places table.")
+            if not place_id or not name:
+                print(f"⚠️ Skipping record without required fields: place_id={place_id}, name={name}")
+                continue
+
+            place_data = {
+                "place_id": place_id,
+                "name": name,
+                "category": p.get("category"),
+                "address": p.get("address"),
+                "rating": p.get("rating"),
+                "reviews": p.get("reviews"),
+                "description": p.get("description") or "",
+                "images": json.dumps(p.get("images") or [], ensure_ascii=False),
+                "tags": json.dumps(p.get("tags") or [], ensure_ascii=False),
+                "link": p.get("link"),
+            }
+
+            conn.execute(insert_sql, place_data)
+            processed += 1
+
+    print(f"✅ Inserted/Updated {processed} rows into places table.")
 
 
 if __name__ == "__main__":
