@@ -61,6 +61,7 @@ class GPTService:
         data_type: str = "attractions",
         intent: Optional[str] = None,
         data_status: Optional[Dict[str, Any]] = None,
+        system_override: Optional[str] = None,
     ) -> Dict[str, Any]:
         """Call OpenAI to produce a travel response given optional structured context."""
         language = self._detect_language(user_query)
@@ -92,7 +93,7 @@ class GPTService:
             response = self._create_chat_completion(
                 model=self.model_name,
                 messages=[
-                    {"role": "system", "content": self._system_prompt(language)},
+                    {"role": "system", "content": system_override or self._system_prompt(language)},
                     {"role": "user", "content": user_message},
                 ],
                 temperature=self.temperature,
