@@ -5,7 +5,12 @@ from pathlib import Path
 from sqlalchemy import text
 from world_journey_ai.db import get_engine  # Fixed import path
 
-DATA_PATH = Path(__file__).parent / "data" / "tourist_places.json"
+# Try multiple possible locations for the data file
+DATA_PATH = Path(__file__).parent / "world_journey_ai" / "data" / "tourist_places.json"
+
+# Fallback to check if data is in the same directory
+if not DATA_PATH.exists():
+    DATA_PATH = Path(__file__).parent / "data" / "tourist_places.json"
 
 
 def main():
