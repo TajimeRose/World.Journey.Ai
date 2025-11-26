@@ -63,8 +63,9 @@ class DatabaseService:
 
     def get_all_destinations(self) -> List[Dict[str, Any]]:
         with self.session() as session:
-            rows = session.execute(select(Place).order_by(Place.rating.desc().nullslast()))
-            return [self._place_to_dict(place) for place in rows.scalars()]
+            result = session.execute(select(Place).order_by(Place.rating.desc().nullslast()))
+            places = result.scalars().all()
+            return [self._place_to_dict(place) for place in places]
 
     def search_destinations(self, query: str, limit: int = 5) -> List[Dict[str, Any]]:
         pattern = f"%{query}%"
@@ -83,8 +84,9 @@ class DatabaseService:
                 .order_by(Place.rating.desc().nullslast())
                 .limit(limit)
             )
-            rows = session.execute(stmt)
-            return [self._place_to_dict(place) for place in rows.scalars()]
+            result = session.execute(stmt)
+            places = result.scalars().all()
+            return [self._place_to_dict(place) for place in places]
 
     def get_destination_by_id(self, destination_id: str) -> Optional[Dict[str, Any]]:
         with self.session() as session:
@@ -97,7 +99,8 @@ class DatabaseService:
             rows = session.execute(
                 select(Place).where(Place.category.ilike(pattern)).order_by(Place.rating.desc().nullslast())
             )
-            return [self._place_to_dict(place) for place in rows.scalars()]
+            places = rows.scalars().all()
+            return [self._place_to_dict(place) for place in places]
 
     # ------------------------------------------------------------------
     # Trip plans & analytics (not yet backed by concrete tables)
