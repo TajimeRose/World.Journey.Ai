@@ -11,6 +11,16 @@ from typing import Any, Dict, List, Optional, TYPE_CHECKING
 
 from world_journey_ai.configs import PromptRepo
 from world_journey_ai.db import get_db, Place
+try:
+    from world_journey_ai.services.database import get_db_service
+    DB_SERVICE_AVAILABLE = True
+except Exception as exc:
+    print(f"[WARN] Database service unavailable for adaptive flow: {exc}")
+    DB_SERVICE_AVAILABLE = False
+
+    # Provide stub to keep symbol bound for static analysis / linters.
+    def get_db_service() -> Any:  # type: ignore[misc]
+        raise RuntimeError("Database service unavailable")
 
 
 try:
@@ -816,6 +826,83 @@ class TravelChatbot:
         }
         return mapping.get(topic, "general")
 
+    # ------------------------------------------------------------------
+    # Basic GPT-only fallback (no DB enrichment)
+    # ------------------------------------------------------------------
+    def _pure_gpt_response(self, user_message: str, language: str) -> Dict[str, Any]:
+        """Generate a response using only GPT and character persona (no structured data)."""
+        character_note = self._character_context()
+        preference_note = self._preference_context()
+        system_hint_th = (
+            "คุณคือน้องปลาทู แอดมิน AI ผู้ช่วยแนะนำการท่องเที่ยวจังหวัดสมุทรสงคราม "
+            "ตอนนี้ฐานข้อมูลภายในยังไม่พร้อม ให้ตอบโดยใช้ความรู้ทั่วไปและรักษาคาแรกเตอร์ที่อบอุ่น เป็นมิตร และช่วยเหลือดี"
+        )
+        system_hint_en = (
+            "You are Nong Pla Too, an AI travel assistant for Samut Songkhram. "
+            "The internal database is currently unavailable; respond with general helpful knowledge while preserving the friendly persona."
+        )
+        if self.gpt_service:
+            try:
+                gpt_payload = self.gpt_service.generate_response(
+                    user_query=user_message,
+                    context_data=[],
+                    data_type='travel',
+                    intent='general',
+                    data_status={
+                        'success': False,
+                        'message': 'Database unavailable; pure GPT persona response',
+                        'data_available': False,
+                        'source': 'none',
+                        'preference_note': preference_note,
+                        'character_note': character_note,
+                    },
+                    system_override=system_hint_th if language == 'th' else system_hint_en,
+                )
+                return {
+                    'response': gpt_payload.get('response', ''),
+                    'structured_data': [],
+                    'language': language,
+                    'source': 'gpt_fallback',
+                    'intent': 'general',
+                    'tokens_used': gpt_payload.get('tokens_used'),
+                    'data_status': {
+                        'success': False,
+                        'message': 'Pure GPT fallback',
+                        'data_available': False,
+                        'source': 'none',
+                        'preference_note': preference_note,
+                        'character_note': character_note,
+                    }
+                }
+            except Exception as exc:
+                print(f"[ERROR] Pure GPT fallback failed: {exc}")
+        # Static persona reply if GPT path fails
+        if language == 'th':
+            reply = (
+                "สวัสดีค่ะ น้องปลาทูขออภัย ฐานข้อมูลยังไม่พร้อมใช้งานตอนนี้ "
+                "หากต้องการสถานที่เที่ยว แนะนำให้ลองระบุกลุ่มสถานที่หรือบรรยากาศที่สนใจค่ะ"
+            )
+        else:
+            reply = (
+                "Hi! The internal database is currently unavailable. "
+                "If you share the type of place or vibe you want, I can still help."
+            )
+        return {
+            'response': reply,
+            'structured_data': [],
+            'language': language,
+            'source': 'static_persona_fallback',
+            'intent': 'general',
+            'data_status': {
+                'success': False,
+                'message': 'Static persona fallback',
+                'data_available': False,
+                'source': 'none',
+                'preference_note': preference_note,
+                'character_note': character_note,
+            }
+        }
+
     def get_response(self, user_message: str, user_id: str = "default") -> Dict[str, Any]:
         language = self._detect_language(user_message)
         self._refresh_settings()
@@ -1030,8 +1117,41 @@ def get_chat_response(message: str, user_id: str = "default") -> Dict[str, Any]:
     global _CHATBOT
     if _CHATBOT is None:
         _CHATBOT = TravelChatbot()
-    
-    return _CHATBOT.get_response(message, user_id)
+    language = _CHATBOT._detect_language(message)
+
+    # Detect DB connectivity (adaptive branch)
+    db_connected = False
+    if DB_SERVICE_AVAILABLE:
+        try:
+            svc = get_db_service()
+            db_connected = svc.test_connection()
+        except Exception as exc:
+            print(f"[WARN] DB connectivity check failed: {exc}")
+            db_connected = False
+
+    if not db_connected:
+        result = _CHATBOT._pure_gpt_response(message, language)
+    else:
+        result = _CHATBOT.get_response(message, user_id)
+
+    # Attach model + character info uniformly
+    try:
+        model_params = PROMPT_REPO.get_model_params()
+        result['model'] = model_params.get('default_model', 'gpt-4o')
+    except Exception:
+        result['model'] = 'gpt-4o'
+    try:
+        result['character'] = (_CHATBOT.character_profile or {}).get('name', 'NongPlaToo')
+    except Exception:
+        result['character'] = 'NongPlaToo'
+    # Add source qualifier for clarity
+    if not db_connected and result.get('source') and 'fallback' in result['source']:
+        result['source'] = result['source'] + '_no_db'
+    elif db_connected and result.get('source') and 'openai' in result['source']:
+        result['source'] = 'data+ai'
+    elif db_connected and result.get('source') == 'simple':
+        result['source'] = 'data+simple'
+    return result
 
 
 if __name__ == "__main__":
