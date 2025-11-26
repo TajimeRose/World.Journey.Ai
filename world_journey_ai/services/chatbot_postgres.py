@@ -81,15 +81,60 @@ class PostgreSQLTravelChatbot:
 """
         return self._system_prompt_cache
     
+    def _is_attraction_query(self, query: str) -> bool:
+        """
+        Detect if user is asking about tourist attractions/sightseeing locations.
+        Returns True if query contains attraction-related keywords.
+        """
+        query_lower = query.lower()
+        attraction_keywords = [
+            'สถานที่ท่องเที่ยว', 'แหล่งท่องเที่ยว', 'สถานที่', 'ที่เที่ยว', 
+            'ท่องเที่ยว', 'เที่ยว', 'ไป', 'แนะนำ', 'น่าไป', 'ชม',
+            'attraction', 'tourist', 'place', 'visit', 'sightseeing',
+            'recommend', 'where to go', 'what to see'
+        ]
+        return any(keyword in query_lower for keyword in attraction_keywords)
+    
+    def _is_simple_keyword(self, query: str) -> bool:
+        """
+        Detect if query is a simple keyword (1-2 words without question structure).
+        Returns True for simple searches like 'ตลาด', 'วัด', 'ทะเล'.
+        """
+        # Remove common Thai particles and spaces
+        cleaned = query.strip()
+        # Count words (approximate for Thai)
+        word_count = len(cleaned.split())
+        # Simple keyword: short (<=10 chars) or 1-2 words, no question marks
+        is_short = len(cleaned) <= 10
+        is_few_words = word_count <= 2
+        no_question = '?' not in cleaned and 'ไหน' not in cleaned and 'อะไร' not in cleaned
+        
+        return (is_short or is_few_words) and no_question
+    
     def _get_destinations(self, query: Optional[str] = None, limit: int = 3) -> List[Dict]:
         """
-        Get destinations - from PostgreSQL or JSON fallback
-        Only returns relevant destinations based on query
+        Get destinations - intelligently choose search method based on query type.
+        
+        - For attraction queries: Use tourist_places table only
+        - For simple keywords: Use all tables
+        - For general queries: Use all tables
         """
         if not (self.db_available and self.db):
             return []
+        
         if query:
-            return self.db.search_destinations(query, limit=limit)
+            # Check if asking about attractions/tourist places FIRST (higher priority)
+            if self._is_attraction_query(query):
+                # Attraction query: use tourist_places table only
+                return self.db.search_attractions_only(query, limit=limit)
+            # Then check if this is a simple keyword search
+            elif self._is_simple_keyword(query):
+                # Simple keyword: search all tables (cafes, restaurants, attractions, etc.)
+                return self.db.search_destinations(query, limit=limit)
+            else:
+                # Other queries: search all tables
+                return self.db.search_destinations(query, limit=limit)
+        
         return self.db.get_all_destinations()[:limit]
     
     def _get_trip_plans(self, duration: Optional[str] = None) -> List[Dict]:
