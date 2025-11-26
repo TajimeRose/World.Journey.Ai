@@ -1,5 +1,5 @@
 import os
-from sqlalchemy import create_engine, Column, String, Text, Float, JSON
+from sqlalchemy import create_engine, Column, String, Text, Float, JSON, or_
 from sqlalchemy.orm import sessionmaker, declarative_base, Session
 
 Base = declarative_base()
@@ -69,3 +69,26 @@ def get_db():
         yield db
     finally:
         db.close()
+
+def search_places(query_text: str, limit: int = 5):
+    """Search places by name, description, city, or province."""
+    session_gen = get_db()
+    session = next(session_gen)
+    try:
+        search_term = f"%{query_text}%"
+        results = session.query(Place).filter(
+            or_(
+                Place.name.ilike(search_term),
+                Place.place_name.ilike(search_term),
+                Place.description.ilike(search_term),
+                Place.city.ilike(search_term),
+                Place.province.ilike(search_term),
+                Place.category.ilike(search_term)
+            )
+        ).limit(limit).all()
+        return [place.to_dict() for place in results]
+    except Exception as e:
+        print(f"[ERROR] Database search failed: {e}")
+        return []
+    finally:
+        session.close()

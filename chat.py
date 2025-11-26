@@ -10,7 +10,8 @@ from pathlib import Path
 from typing import Any, Dict, List, Optional, TYPE_CHECKING
 
 from world_journey_ai.configs import PromptRepo
-from world_journey_ai.db import get_db, Place
+from world_journey_ai.configs import PromptRepo
+from world_journey_ai.db import get_db, Place, search_places
 
 
 try:
@@ -481,60 +482,22 @@ class TravelChatbot:
         limit: Optional[int] = None,
         boost_keywords: Optional[List[str]] = None,
     ) -> List[Dict[str, Any]]:
-        if not self.travel_data:
-            return []
         limit = limit or self.match_limit or 5
-        normalized = query.lower()
-        tokens = [tok for tok in normalized.split() if tok]
-        keyword_list = [kw.lower() for kw in (keywords or []) if kw]
-        boost_list = [kw.lower() for kw in (boost_keywords or []) if kw]
-        scored: List[tuple[Dict[str, Any], int]] = []
-        for entry in self.travel_data:
-            text_fields: List[str] = []
-            for field in ("name", "description", "city"):
-                value = entry.get(field)
-                if value:
-                    text_fields.append(str(value))
-            highlights = entry.get("highlights")
-            if highlights:
-                if isinstance(highlights, list):
-                    text_fields.append(" ".join(str(item) for item in highlights))
-                else:
-                    text_fields.append(str(highlights))
-            info = entry.get("place_information") or {}
-            if isinstance(info, dict):
-                detail_text = info.get("detail")
-                if detail_text:
-                    text_fields.append(str(detail_text))
-                category_description = info.get("category_description")
-                if category_description:
-                    text_fields.append(str(category_description))
-                info_highlights = info.get("highlights")
-                if isinstance(info_highlights, list):
-                    text_fields.append(" ".join(str(item) for item in info_highlights))
-            types = entry.get("type")
-            if types:
-                if isinstance(types, list):
-                    text_fields.append(" ".join(str(item) for item in types))
-                else:
-                    text_fields.append(str(types))
-            haystack = " ".join(part.lower() for part in text_fields if part)
-            score = 0
-            for token in tokens:
-                if token in haystack:
-                    score += 1
-            for kw in keyword_list:
-                if kw in haystack:
-                    score += 3
-            for kw in boost_list:
-                if kw in haystack:
-                    score += 4
-            if score > 0:
-                scored.append((entry, score))
-        scored.sort(key=lambda item: item[1], reverse=True)
-        if not scored:
-            return []
-        return [item for item, _ in scored[:limit]]
+        
+        # Use DB search
+        results = search_places(query, limit=limit)
+        
+        # If keywords provided, try searching them too
+        if keywords:
+            for kw in keywords:
+                if len(results) >= limit:
+                    break
+                kw_results = search_places(kw, limit=2)
+                for res in kw_results:
+                    if not any(r['id'] == res['id'] for r in results):
+                        results.append(res)
+                        
+        return results[:limit]
 
     def _select_trip_guides_for_query(
         self,

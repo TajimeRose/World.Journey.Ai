@@ -14,7 +14,7 @@ python-dotenv>=1.0.0
 
 # Database
 psycopg2-binary>=2.9.0
-SQLAlchemy>=2.0.0
+SQLAlchemy==2.0.0
 
 # API requests for external APIs (if needed later)
 requests>=2.31.0
