@@ -9,7 +9,7 @@ scripts or notebooks.
 from __future__ import annotations
 
 import os
-from typing import Dict, Generator, Iterable, List
+from typing import Dict, Generator, Iterable, List, cast as typing_cast
 
 try:
     from dotenv import load_dotenv
@@ -88,6 +88,70 @@ class Place(Base):
         return f"Place(id={self.id!r}, name={self.name!r}, rating={self.rating!r})"
 
 
+class TouristPlace(Base):
+    """ORM model mapping the ``tourist_places`` table (Thai tourism data)."""
+
+    __tablename__ = "tourist_places"
+
+    # Actual columns in the database
+    id = Column(Integer, primary_key=True)
+    name_th = Column(Text, nullable=False)
+    location = Column(Text)
+    rating = Column(Float)
+    images = Column(JSON)  # list[str]
+    tags = Column(JSON)  # list[str]
+    description = Column(Text)
+
+    def to_dict(self) -> Dict[str, object]:
+        """Convert to dict with chatbot-compatible field names and defaults."""
+        # Extract city from location if available
+        city_value = ""
+        location_str = str(self.location) if self.location is not None else ""
+        if location_str:
+            # Remove 'อำเภอ' prefix if present
+            import re
+            city_match = re.search(r'(?:อำเภอ|อ\.)\s*([^\s,]+)', location_str)
+            if city_match:
+                city_value = city_match.group(1)
+            else:
+                city_value = location_str
+        
+        # Build type list from tags
+        tags_list = list(self.tags) if self.tags is not None else []  # type: ignore
+        type_value = tags_list[:2] if len(tags_list) > 0 else []
+        
+        rating_val = typing_cast(float | None, self.rating)
+        rating_value = float(rating_val) if rating_val is not None else 0.0
+        images_list = list(self.images) if self.images is not None else []  # type: ignore
+        
+        return {
+            "id": f"tourist_{self.id}",
+            "place_id": f"tourist_{self.id}",
+            "name": self.name_th,
+            "place_name": self.name_th,
+            "description": self.description,
+            "address": location_str,
+            "city": city_value,
+            "province": "สมุทรสงคราม",
+            "type": type_value,
+            "category": type_value[0] if len(type_value) > 0 else "สถานที่ท่องเที่ยว",
+            "rating": rating_value,
+            "reviews": 0,
+            "tags": tags_list,
+            "link": None,
+            "highlights": tags_list,
+            "place_information": {
+                "detail": self.description,
+                "category_description": type_value[0] if len(type_value) > 0 else "สถานที่ท่องเที่ยว",
+            },
+            "images": images_list,
+            "source": "tourist_places",
+        }
+
+    def __repr__(self) -> str:  # pragma: no cover - debug helper
+        return f"TouristPlace(id={self.id!r}, name_th={self.name_th!r}, rating={self.rating!r})"
+
+
 def get_db_url() -> str:
     url = os.getenv("DATABASE_URL")
     if url:
@@ -135,12 +199,14 @@ def get_db() -> Generator[Session, None, None]:
 
 
 def search_places(keyword: str, limit: int = 10) -> List[Dict[str, object]]:
-    """Search the ``places`` table for records containing ``keyword``."""
+    """Search both ``places`` and ``tourist_places`` tables for records containing ``keyword``."""
 
     init_db()
     session_factory = get_session_factory()
     kw = f"%{keyword}%"
-    stmt = (
+    
+    # Search regular places
+    places_stmt = (
         select(Place)
         .where(
             or_(
@@ -152,9 +218,29 @@ def search_places(keyword: str, limit: int = 10) -> List[Dict[str, object]]:
             )
         )
         .order_by(Place.rating.desc().nullslast())
-        .limit(limit)
+    )
+    
+    # Search tourist places
+    tourist_stmt = (
+        select(TouristPlace)
+        .where(
+            or_(
+                TouristPlace.name_th.ilike(kw),
+                TouristPlace.location.ilike(kw),
+                TouristPlace.description.ilike(kw),
+                cast(TouristPlace.tags, Text).ilike(kw),
+            )
+        )
+        .order_by(TouristPlace.rating.desc().nullslast())
     )
 
     with session_factory() as session:
-        rows: Iterable[Place] = session.scalars(stmt)
-        return [place.to_dict() for place in rows]
+        places_rows: Iterable[Place] = session.scalars(places_stmt)
+        tourist_rows: Iterable[TouristPlace] = session.scalars(tourist_stmt)
+        
+        results = [place.to_dict() for place in places_rows]
+        results.extend([place.to_dict() for place in tourist_rows])
+        
+        # Sort by rating and limit
+        results.sort(key=lambda x: float(x.get('rating', 0) or 0), reverse=True)  # type: ignore
+        return results[:limit]
