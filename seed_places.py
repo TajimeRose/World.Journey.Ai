@@ -1,73 +1,107 @@
 # seed_places.py
 import json
-from pathlib import Path
+import os
 import sys
+from pathlib import Path
+from typing import Iterable, Union
 
 from sqlalchemy import text
 from sqlalchemy.exc import ProgrammingError
+
 from world_journey_ai.db import get_engine
 
-def get_data_path():
-    """Get the path to tourist_places.json using multiple fallback strategies."""
-    
+DEFAULT_REMOTE_URL = (
+    "https://raw.githubusercontent.com/TajimeRose/NongPlato.Ai/krakenv2/"
+    "world_journey_ai/data/tourist_places.json"
+)
+
+
+def find_data_path() -> Union[Path, "Traversable", None]:  # type: ignore[name-defined]
+    """Locate tourist_places.json if it exists on disk."""
+
     # Method 1: Try importlib.resources (best for packaged apps)
     try:
         if sys.version_info >= (3, 9):
             from importlib.resources import files
-        else:
-            from importlib_resources import files
-        
-        data_file = files('world_journey_ai').joinpath('data', 'tourist_places.json')
-        if data_file.is_file():
+        else:  # pragma: no cover - backport for <3.9
+            from importlib_resources import files  # type: ignore
+
+        data_file = files("world_journey_ai").joinpath("data", "tourist_places.json")
+        if getattr(data_file, "is_file", lambda: False)():
             print(f"✅ Found data using importlib.resources: {data_file}")
             return data_file
-    except Exception as e:
-        print(f"⚠️ importlib.resources failed: {e}")
-    
+    except Exception as exc:  # pragma: no cover - informative only
+        print(f"⚠️ importlib.resources failed: {exc}")
+
     # Method 2: Relative to script file (works in development)
     script_based = Path(__file__).parent / "world_journey_ai" / "data" / "tourist_places.json"
     if script_based.exists():
         print(f"✅ Found data relative to script: {script_based}")
         return script_based
-    
+
     # Method 3: Using package __file__ location
     try:
         import world_journey_ai
+
         package_dir = Path(world_journey_ai.__file__).parent
         package_based = package_dir / "data" / "tourist_places.json"
         if package_based.exists():
             print(f"✅ Found data using package location: {package_based}")
             return package_based
-    except Exception as e:
-        print(f"⚠️ Package-based lookup failed: {e}")
-    
-    # If nothing worked, raise error
-    raise FileNotFoundError(
-        f"Cannot find tourist_places.json\n"
-        f"Tried:\n"
-        f"  1. importlib.resources\n"
-        f"  2. {script_based}\n"
-        f"  3. Package-based lookup"
-    )
+    except Exception as exc:  # pragma: no cover - informative only
+        print(f"⚠️ Package-based lookup failed: {exc}")
 
-DATA_PATH = get_data_path()
+    return None
+
+
+def download_data_to_temp() -> Path:
+    """Download tourist_places.json to a temporary location and return the path."""
+
+    import urllib.request
+
+    url = os.getenv("TOURIST_PLACES_JSON_URL", DEFAULT_REMOTE_URL)
+    target_dir = Path(os.getenv("TMPDIR", "/tmp"))
+    target_dir.mkdir(parents=True, exist_ok=True)
+    temp_path = target_dir / "tourist_places.json"
+
+    print(f"🌐 Downloading tourist_places.json from {url}")
+    with urllib.request.urlopen(url) as response:  # nosec - controlled URL
+        if response.status != 200:
+            raise RuntimeError(f"Failed to download data: HTTP {response.status}")
+        payload = response.read()
+
+    temp_path.write_bytes(payload)
+    print(f"✅ Downloaded data to temporary location: {temp_path}")
+    return temp_path
+
+
+def load_places() -> Iterable[dict]:
+    """Load place records from disk or remote fallback."""
+
+    data_path = find_data_path()
+
+    if data_path is None:
+        print("⚠️ tourist_places.json not found locally; attempting remote download")
+        data_path = download_data_to_temp()
+
+    try:
+        if hasattr(data_path, "open"):
+            with data_path.open(encoding="utf-8") as handle:  # type: ignore[call-arg]
+                return json.load(handle)
+
+        with open(data_path, encoding="utf-8") as handle:  # type: ignore[arg-type]
+            return json.load(handle)
+    except AttributeError:
+        # Traversable from importlib.resources does not always expose open()
+        with open(str(data_path), encoding="utf-8") as handle:  # type: ignore[arg-type]
+            return json.load(handle)
 
 
 def main():
-    # Load JSON data - handle both Path and Traversable types
     try:
-        # If it's a Traversable from importlib.resources, convert to string path
-        if not isinstance(DATA_PATH, Path):
-            # Convert Traversable to Path
-            path_str = str(DATA_PATH)
-            with open(path_str, encoding="utf-8") as f:
-                places = json.load(f)
-        else:
-            # If it's a regular Path
-            with open(DATA_PATH, encoding="utf-8") as f:
-                places = json.load(f)
-    except Exception as e:
-        print(f"❌ Error loading data: {e}")
+        places = load_places()
+    except Exception as exc:
+        print(f"❌ Error loading data: {exc}")
         raise
 
     engine = get_engine()
