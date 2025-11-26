@@ -1,97 +1,113 @@
 # seed_places.py
 import json
 from pathlib import Path
+import sys
 
 from sqlalchemy import text
-from world_journey_ai.db import get_engine  # Fixed import path
+from world_journey_ai.db import get_engine
 
-# Try multiple possible locations for the data file
-# First, try as a package resource (works in both local and Docker)
-try:
-    # Option 1: Using importlib.resources (Python 3.9+)
-    from importlib.resources import files
-    DATA_PATH = files('world_journey_ai').joinpath('data', 'tourist_places.json')
-    print(f"📦 Using package resource: {DATA_PATH}")
-except (ImportError, AttributeError):
-    # Option 2: Fallback to file path detection
-    DATA_PATH = Path(__file__).parent / "world_journey_ai" / "data" / "tourist_places.json"
+def get_data_path():
+    """Get the path to tourist_places.json using multiple fallback strategies."""
     
-    # Fallback to check if data is in the same directory
-    if not DATA_PATH.exists():
-        DATA_PATH = Path(__file__).parent / "data" / "tourist_places.json"
+    # Method 1: Try importlib.resources (best for packaged apps)
+    try:
+        if sys.version_info >= (3, 9):
+            from importlib.resources import files
+        else:
+            from importlib_resources import files
+        
+        data_file = files('world_journey_ai').joinpath('data', 'tourist_places.json')
+        if data_file.is_file():
+            print(f"✅ Found data using importlib.resources: {data_file}")
+            return data_file
+    except Exception as e:
+        print(f"⚠️ importlib.resources failed: {e}")
     
-    # Final fallback - check if file still doesn't exist and show helpful error
-    if not DATA_PATH.exists():
-        print(f"❌ ERROR: Could not find tourist_places.json")
-        print(f"Tried: {Path(__file__).parent / 'world_journey_ai' / 'data' / 'tourist_places.json'}")
-        print(f"Tried: {Path(__file__).parent / 'data' / 'tourist_places.json'}")
-        print(f"Current directory: {Path.cwd()}")
-        print(f"Script location: {Path(__file__).parent}")
-        
-        # List what's actually in the directories
-        print(f"\nContents of /app:")
-        for item in Path('/app').iterdir():
-            print(f"  - {item}")
-        
-        if Path('/app/world_journey_ai').exists():
-            print(f"\nContents of /app/world_journey_ai:")
-            for item in Path('/app/world_journey_ai').iterdir():
-                print(f"  - {item}")
-        
-        raise FileNotFoundError(f"tourist_places.json not found in expected locations")
+    # Method 2: Relative to script file (works in development)
+    script_based = Path(__file__).parent / "world_journey_ai" / "data" / "tourist_places.json"
+    if script_based.exists():
+        print(f"✅ Found data relative to script: {script_based}")
+        return script_based
     
-    print(f"✅ Loading data from: {DATA_PATH}")
+    # Method 3: Using package __file__ location
+    try:
+        import world_journey_ai
+        package_dir = Path(world_journey_ai.__file__).parent
+        package_based = package_dir / "data" / "tourist_places.json"
+        if package_based.exists():
+            print(f"✅ Found data using package location: {package_based}")
+            return package_based
+    except Exception as e:
+        print(f"⚠️ Package-based lookup failed: {e}")
+    
+    # If nothing worked, raise error
+    raise FileNotFoundError(
+        f"Cannot find tourist_places.json\n"
+        f"Tried:\n"
+        f"  1. importlib.resources\n"
+        f"  2. {script_based}\n"
+        f"  3. Package-based lookup"
+    )
+
+DATA_PATH = get_data_path()
 
 
 def main():
-    # โหลดข้อมูลจากไฟล์ JSON
-    with DATA_PATH.open(encoding="utf-8") as f:
-        places = json.load(f)
+    # Load JSON data - handle both Path and Traversable types
+    try:
+        # If it's a Traversable from importlib.resources, convert to string path
+        if not isinstance(DATA_PATH, Path):
+            # Convert Traversable to Path
+            path_str = str(DATA_PATH)
+            with open(path_str, encoding="utf-8") as f:
+                places = json.load(f)
+        else:
+            # If it's a regular Path
+            with open(DATA_PATH, encoding="utf-8") as f:
+                places = json.load(f)
+    except Exception as e:
+        print(f"❌ Error loading data: {e}")
+        raise
 
     engine = get_engine()
 
+    # Insert into tourist_places table (not places table!)
+    # Map Google Places data to tourist_places schema
     insert_sql = text("""
-        INSERT INTO places
-            (place_id, name, category, address, rating,
-             reviews, description, images, tags, link)
+        INSERT INTO tourist_places
+            (id, name_th, location, rating, description, images, tags)
         VALUES
-            (:place_id, :name, :category, :address, :rating,
-             :reviews, :description, :images, :tags, :link)
+            (:id, :name_th, :location, :rating, :description, :images, :tags)
+        ON CONFLICT (id) DO UPDATE SET
+            name_th = EXCLUDED.name_th,
+            location = EXCLUDED.location,
+            rating = EXCLUDED.rating,
+            description = EXCLUDED.description,
+            images = EXCLUDED.images,
+            tags = EXCLUDED.tags
     """)
 
     inserted = 0
     with engine.begin() as conn:
-        for p in places:
-            place_id = str(p.get("id")) if p.get("id") is not None else None
-            name = p.get("name_th")
-            category = None  # ถ้าจะ map จากอย่างอื่นค่อยเติมทีหลัง
-            address = p.get("location")
-            rating = p.get("rating")  # ถ้าไม่มีในไฟล์จะเป็น None
-            reviews = None
-            description = p.get("description")
-
-            images = json.dumps(p.get("images", []), ensure_ascii=False)
-            tags = json.dumps(p.get("tags", []), ensure_ascii=False)
-            link = None  # ถ้ามีลิงก์ค่อยใส่ทีหลัง
-
-            conn.execute(
-                insert_sql,
-                {
-                    "place_id": place_id,
-                    "name": name,
-                    "category": category,
-                    "address": address,
-                    "rating": rating,
-                    "reviews": reviews,
-                    "description": description,
-                    "images": images,
-                    "tags": tags,
-                    "link": link,
-                },
-            )
+        for idx, p in enumerate(places, start=1):
+            # Transform Google Places data to tourist_places schema
+            place_data = {
+                "id": idx,  # Use sequential integer ID
+                "name_th": p.get("name"),  # Use name as name_th
+                "location": p.get("address"),  # Use address as location
+                "rating": p.get("rating"),
+                "description": p.get("description") or "",  # Handle null descriptions
+                "images": json.dumps([p.get("featured_image")] if p.get("featured_image") else [], ensure_ascii=False),
+                "tags": json.dumps(
+                    [cat.strip() for cat in (p.get("categories") or "").split(",") if cat.strip()],
+                    ensure_ascii=False
+                ),
+            }
+            
+            conn.execute(insert_sql, place_data)
             inserted += 1
 
-    print(f"Inserted {inserted} rows into places table.")
+    print(f"✅ Inserted/Updated {inserted} rows into tourist_places table.")
 
 
 if __name__ == "__main__":
