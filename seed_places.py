@@ -12,6 +12,17 @@ DATA_PATH = Path(__file__).parent / "world_journey_ai" / "data" / "tourist_place
 if not DATA_PATH.exists():
     DATA_PATH = Path(__file__).parent / "data" / "tourist_places.json"
 
+# Final fallback - check if file still doesn't exist and show helpful error
+if not DATA_PATH.exists():
+    print(f"❌ ERROR: Could not find tourist_places.json")
+    print(f"Tried: {Path(__file__).parent / 'world_journey_ai' / 'data' / 'tourist_places.json'}")
+    print(f"Tried: {Path(__file__).parent / 'data' / 'tourist_places.json'}")
+    print(f"Current directory: {Path.cwd()}")
+    print(f"Script location: {Path(__file__).parent}")
+    raise FileNotFoundError(f"tourist_places.json not found in expected locations")
+
+print(f"✅ Loading data from: {DATA_PATH}")
+
 
 def main():
     # โหลดข้อมูลจากไฟล์ JSON
